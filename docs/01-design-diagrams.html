@@ -45,6 +45,7 @@ ul{margin:0;padding-left:20px;max-width:65ch} li{margin-bottom:4px}
 <nav style="font-size:14px"><a href="index.html">&larr; ImpactLens docs</a></nav>
 <header>
   <h1>ImpactLens: the idea and how it fits together</h1>
+  <p style="color:var(--muted);font-size:13px">Updated for the November 26 version. Section 6 shows what is new.</p>
   <p class="lead">NGO staff ask questions about their spreadsheets in plain English. AI writes a small analysis program, the browser runs it on their data, and the answer comes back in words the reader's level.</p>
 </header>
 
@@ -73,8 +74,8 @@ ul{margin:0;padding-left:20px;max-width:65ch} li{margin-bottom:4px}
   <svg viewBox="0 0 860 400" role="img" aria-label="Architecture layers">
     <defs><marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--muted)" stroke="none"/></marker></defs>
     <rect class="plain" x="10" y="10" width="560" height="380" rx="10"/><text class="h" x="26" y="32">USER'S BROWSER</text>
-    <rect class="ui" x="30" y="48" width="520" height="62" rx="8"/><text class="h" x="46" y="70">SCREENS</text><text class="s" x="46" y="90">Login · Projects · Dashboard with 10 tabs (Wizard, Consistency, Strategic, Saved Queries, Favourites ...)</text>
-    <rect class="ui" x="30" y="124" width="520" height="46" rx="8"/><text class="h" x="46" y="145">SHARED STATE</text><text class="s" x="46" y="161">Auth · Current project · Model settings per agent</text>
+    <rect class="ui" x="30" y="48" width="520" height="62" rx="8"/><text class="h" x="46" y="70">SCREENS</text><text class="s" x="46" y="90">Login · Role gate (Pro / Basic) · Projects · Dashboard (Pro: 10 tabs, Basic: 4 tabs)</text>
+    <rect class="ui" x="30" y="124" width="520" height="46" rx="8"/><text class="h" x="46" y="145">SHARED STATE</text><text class="s" x="46" y="161">Auth + role · Current project · Model settings per agent</text>
     <rect class="ai" x="30" y="184" width="250" height="90" rx="8"/><text class="h" x="46" y="206">AGENTS (agents.ts)</text><text class="s" x="46" y="226">~40 prompt functions: interpret,</text><text class="s" x="46" y="241">plan, code, evaluate, explain,</text><text class="s" x="46" y="256">strategy, consistency</text>
     <rect class="ui" x="300" y="184" width="250" height="90" rx="8"/><text class="h" x="316" y="206">DATA ENGINE</text><text class="s" x="316" y="226">Web Worker runs the AI's code</text><text class="s" x="316" y="241">with Danfo.js + TensorFlow.js.</text><text class="s" x="316" y="256">5 s sample test, 60 s full run</text>
     <rect class="st" x="30" y="290" width="250" height="84" rx="8"/><text class="h" x="46" y="312">BROWSER STORAGE</text><text class="s" x="46" y="332">IndexedDB: CSV files</text><text class="s" x="46" y="347">localStorage: model choices</text>
@@ -144,6 +145,33 @@ ul{margin:0;padding-left:20px;max-width:65ch} li{margin-bottom:4px}
     <rect class="ai" x="590" y="20" width="260" height="190" rx="8"/><text class="h" x="606" y="44">SENT TO AI PROVIDERS</text>
     <text class="t" x="606" y="72">The question text</text><text class="t" x="606" y="96">Column names and descriptions</text><text class="t" x="606" y="120">A few sample rows and results</text>
     <text class="s" x="606" y="160">Full CSV files are not uploaded.</text><text class="s" x="606" y="176">Review before using sensitive data.</text>
+  </svg></div>
+</section>
+<section>
+  <h2>6. New in the Nov 26 version: roles and online file loading</h2>
+  <p>After Google sign-in, the user picks a role and types its password. The role decides which tabs appear. The Files tab can now pull project files from a GitHub repository and decrypt encrypted CSVs in the browser.</p>
+  <div class="fig">
+  <svg viewBox="0 0 860 470" role="img" aria-label="Role gate and online file loading">
+    <defs><marker id="a5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--muted)" stroke="none"/></marker></defs>
+    <text class="h" x="10" y="20">ROLE GATE</text>
+    <rect class="ui" x="10" y="34" width="130" height="56" rx="8"/><text class="t" x="75" y="67" text-anchor="middle">Google sign-in</text>
+    <rect class="ui" x="170" y="34" width="150" height="56" rx="8"/><text class="t" x="245" y="58" text-anchor="middle">Choose Pro or Basic</text><text class="s" x="245" y="75" text-anchor="middle">enter that role's password</text>
+    <rect class="wn" x="350" y="34" width="150" height="56" rx="8"/><text class="t" x="425" y="58" text-anchor="middle">Wrong password</text><text class="s" x="425" y="75" text-anchor="middle">locked 20 min, then 60</text>
+    <rect class="ui" x="540" y="34" width="150" height="56" rx="8"/><text class="t" x="615" y="58" text-anchor="middle">Pro: all 10 tabs</text><text class="s" x="615" y="75" text-anchor="middle">opens on Strategically</text>
+    <rect class="ui" x="710" y="34" width="140" height="56" rx="8"/><text class="t" x="780" y="54" text-anchor="middle">Basic: 4 tabs</text><text class="s" x="780" y="73" text-anchor="middle">Favourites, History,</text><text class="s" x="780" y="85" text-anchor="middle">Saved Queries, Files</text>
+    <path class="arr" d="M140 62H168" marker-end="url(#a5)"/><path class="arr" d="M320 62H348" marker-end="url(#a5)"/><path class="arr" d="M500 62H538" marker-end="url(#a5)"/><path class="arr" d="M690 62H708" marker-end="url(#a5)"/>
+    <rect class="wn" x="10" y="108" width="840" height="52" rx="8"/><text class="t" x="430" y="130" text-anchor="middle">The role is checked in the browser only. Passwords ship in the page code and Firestore rules do not use roles,</text><text class="t" x="430" y="148" text-anchor="middle">so this hides tabs but does not secure data.</text>
+    <text class="h" x="10" y="186">GETTING DATA IN (FILES TAB)</text>
+    <rect class="ui" x="10" y="196" width="150" height="70" rx="8"/><text class="t" x="85" y="226" text-anchor="middle">Upload from</text><text class="t" x="85" y="244" text-anchor="middle">computer</text>
+    <rect class="ui" x="10" y="286" width="150" height="70" rx="8"/><text class="t" x="85" y="310" text-anchor="middle">GitHub repo URL</text><text class="s" x="85" y="328" text-anchor="middle">or direct file link</text>
+    <rect class="st" x="210" y="286" width="150" height="70" rx="8"/><text class="t" x="285" y="310" text-anchor="middle">GitHub API lists</text><text class="s" x="285" y="328" text-anchor="middle">files, app downloads</text><text class="s" x="285" y="342" text-anchor="middle">the supported ones</text>
+    <rect class="ai" x="410" y="286" width="150" height="70" rx="8"/><text class="t" x="485" y="310" text-anchor="middle">Decrypt .csv.enc</text><text class="s" x="485" y="328" text-anchor="middle">AES-GCM in browser,</text><text class="s" x="485" y="342" text-anchor="middle">passphrase from form</text>
+    <rect class="plain" x="410" y="196" width="150" height="70" rx="8"/><text class="t" x="485" y="226" text-anchor="middle">Sort by name</text><text class="s" x="485" y="244" text-anchor="middle">settings text vs CSV</text>
+    <rect class="st" x="640" y="196" width="210" height="70" rx="8"/><text class="t" x="745" y="222" text-anchor="middle">Browser (IndexedDB)</text><text class="s" x="745" y="240" text-anchor="middle">CSV data files</text>
+    <rect class="st" x="640" y="286" width="210" height="70" rx="8"/><text class="t" x="745" y="312" text-anchor="middle">Firestore project record</text><text class="s" x="745" y="330" text-anchor="middle">schema, examples, guidelines</text>
+    <path class="arr" d="M160 231H408" marker-end="url(#a5)"/><path class="arr" d="M160 321H208" marker-end="url(#a5)"/><path class="arr" d="M360 321H408" marker-end="url(#a5)"/>
+    <path class="arr" d="M560 231H638" marker-end="url(#a5)"/><path class="arr" d="M485 286V268" marker-end="url(#a5)"/><path class="arr" d="M560 331H638" marker-end="url(#a5)"/>
+    <rect class="wn" x="10" y="384" width="840" height="64" rx="8"/><text class="t" x="430" y="408" text-anchor="middle">Watch out: the default decryption passphrase and default repository address are in the source code, so encryption only protects</text><text class="t" x="430" y="426" text-anchor="middle">files while they sit in the repository. Public repository means public files. GitHub allows about 60 unauthenticated requests an hour.</text>
   </svg></div>
 </section>
 </main>

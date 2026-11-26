@@ -50,7 +50,9 @@ href="00-overview.html">00-overview.md</a> first.</p>
 </tr>
 <tr class="odd">
 <td><code>src/components/*.tsx</code></td>
-<td>One file per tab, plus shared viewers</td>
+<td>One file per tab, plus shared viewers.
+<code>ProjectSelection.tsx</code> holds the role gate;
+<code>Files.tsx</code> holds file loading and decryption.</td>
 </tr>
 <tr class="even">
 <td><code>src/lib/agents.ts</code></td>
@@ -70,7 +72,7 @@ href="00-overview.html">00-overview.md</a> first.</p>
 </tr>
 <tr class="even">
 <td><code>src/contexts/</code></td>
-<td>Auth, current project, per-agent model choices</td>
+<td>Auth and role, current project, per-agent model choices</td>
 </tr>
 <tr class="odd">
 <td><code>firestore.rules</code>,
@@ -174,12 +176,58 @@ matches. (It is already missing <code>dataFiles</code>.)</li>
 <li>Redeploy the rules
 (<code>firebase deploy --only firestore:rules</code>).</li>
 </ol>
-<h2 id="recipe-7-add-a-new-audience-persona">Recipe 7: add a new
+<h2 id="recipe-7-change-what-each-role-can-see">Recipe 7: change what
+each role can see</h2>
+<p>Roles are defined in <code>src/contexts/AuthContext.tsx</code>
+(<code>UserRole</code>, the password table,
+<code>verifyAndSetRole</code>) and applied in
+<code>Dashboard.tsx</code>.</p>
+<ol type="1">
+<li>To let Basic users open another tab, add its id to
+<code>BASIC_ALLOWED_TABS</code> at the top of
+<code>Dashboard.tsx</code>. The tab bar and the redirect rule both use
+that list.</li>
+<li>For a tab that should be Pro-only, render it as
+<code>{isProRole &amp;&amp; activeTab === 'x' &amp;&amp; &lt;X /&gt;}</code>,
+like the others.</li>
+<li>To add a third role, extend <code>UserRole</code>, add a password
+entry, add a card in <code>ProjectSelection.tsx</code>, and decide its
+tab list in <code>Dashboard.tsx</code>.</li>
+<li>To change lockout times, edit <code>FIRST_LOCKOUT_MS</code> and
+<code>SECOND_LOCKOUT_MS</code> in
+<code>ProjectSelection.tsx</code>.</li>
+</ol>
+<p>Remember the passwords ship inside the page (see the overview's risk
+list). If you need real access control, store a <code>role</code> on the
+user's Firestore record, change it only by an admin, and check it in
+<code>firestore.rules</code>.</p>
+<h2
+id="recipe-8-support-a-new-file-type-or-source-in-the-files-tab">Recipe
+8: support a new file type or source in the Files tab</h2>
+<p>All file handling goes through <code>applyNamedFile</code> in
+<code>Files.tsx</code>.</p>
+<ol type="1">
+<li>Add the file name or extension check (see
+<code>SUPPORTED_CONFIG_FILES</code>, <code>isPlainCsvFile</code>,
+<code>isEncryptedCsvFile</code>).</li>
+<li>Add a branch in <code>applyNamedFile</code> that saves it: text
+settings go into the <code>updates</code> object (and need a matching
+field in the project type and <code>firestore.rules</code>), data files
+go to IndexedDB with <code>upsertLocalCsv</code>.</li>
+<li>For a new online source, add a parser like
+<code>parseGitHubRepoUrl</code> and a fetch branch in
+<code>handleFetchFromOnline</code>.</li>
+<li>To use another encryption layout, change
+<code>decryptBrowser</code>. The current format is a 12-byte IV, then
+the ciphertext, then the 16-byte GCM tag, with the key made from the
+SHA-256 of the passphrase.</li>
+</ol>
+<h2 id="recipe-9-add-a-new-audience-persona">Recipe 9: add a new
 audience persona</h2>
 <p>Personas live in <code>src/lib/dossierPersonas.ts</code> (school
 student, college graduate, NGO leader, data scientist). Add an entry
 there. The explainer and dossier screens read this list.</p>
-<h2 id="recipe-8-add-a-new-result-display">Recipe 8: add a new result
+<h2 id="recipe-10-add-a-new-result-display">Recipe 10: add a new result
 display</h2>
 <p><code>SmartResultViewer.tsx</code> picks a template (summary, table,
 explorer, raw) from the shape of the result. Add a new template there,
@@ -213,6 +261,13 @@ sandboxed iframe with a strict content-security policy, and self-host
 Danfo.js and TensorFlow.js instead of loading them from a CDN.</li>
 <li><strong>Control cost.</strong> Add a per-user daily call limit on
 the server, and log token use per agent.</li>
+<li><strong>Replace the client-side role check.</strong> Keep roles in
+Firestore, enforce them in the rules, and drop the password table from
+the code. Move the decryption key out of the source too (ask the user
+for it, or have a server hand it out after sign-in).</li>
+<li><strong>Make online loading sturdier.</strong> Support sub-folders,
+send a GitHub token through a server so private repositories and higher
+limits work, and stream large files.</li>
 <li><strong>Tidy.</strong> Rename the package, remove unused
 <code>express</code>/<code>tsx</code>, and fix the README to list all
 three keys.</li>

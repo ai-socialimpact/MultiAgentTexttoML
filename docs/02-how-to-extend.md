@@ -8,12 +8,12 @@ A practical guide for a developer adding to ImpactLens. File names refer to the 
 |---|---|
 | `src/App.tsx` | Chooses Login, Project selection or Dashboard |
 | `src/components/Dashboard.tsx` | The tab bar and which screen shows |
-| `src/components/*.tsx` | One file per tab, plus shared viewers |
+| `src/components/*.tsx` | One file per tab, plus shared viewers. `ProjectSelection.tsx` holds the role gate; `Files.tsx` holds file loading and decryption. |
 | `src/lib/agents.ts` | All AI prompts and the model-fallback helper |
 | `src/lib/DataAgentEngine.ts` | Runs AI-written code in a Web Worker |
 | `src/lib/localDb.ts` | Browser file storage (Dexie / IndexedDB) |
 | `src/lib/strategicFavourites.ts` | Saved strategic bundles and CSV fingerprints |
-| `src/contexts/` | Auth, current project, per-agent model choices |
+| `src/contexts/` | Auth and role, current project, per-agent model choices |
 | `firestore.rules`, `firebase-blueprint.json` | Database rules and data shapes |
 
 ## Recipe 1: add a new AI agent
@@ -63,11 +63,31 @@ The AI-written code receives `data`, `dfd` (Danfo.js) and `tf` (TensorFlow.js). 
 4. Strip `undefined` values before saving. `AnswerStrategically.tsx` has a `sanitizeForFirestore` helper for this.
 5. Redeploy the rules (`firebase deploy --only firestore:rules`).
 
-## Recipe 7: add a new audience persona
+## Recipe 7: change what each role can see
+
+Roles are defined in `src/contexts/AuthContext.tsx` (`UserRole`, the password table, `verifyAndSetRole`) and applied in `Dashboard.tsx`.
+
+1. To let Basic users open another tab, add its id to `BASIC_ALLOWED_TABS` at the top of `Dashboard.tsx`. The tab bar and the redirect rule both use that list.
+2. For a tab that should be Pro-only, render it as `{isProRole && activeTab === 'x' && <X />}`, like the others.
+3. To add a third role, extend `UserRole`, add a password entry, add a card in `ProjectSelection.tsx`, and decide its tab list in `Dashboard.tsx`.
+4. To change lockout times, edit `FIRST_LOCKOUT_MS` and `SECOND_LOCKOUT_MS` in `ProjectSelection.tsx`.
+
+Remember the passwords ship inside the page (see the overview's risk list). If you need real access control, store a `role` on the user's Firestore record, change it only by an admin, and check it in `firestore.rules`.
+
+## Recipe 8: support a new file type or source in the Files tab
+
+All file handling goes through `applyNamedFile` in `Files.tsx`.
+
+1. Add the file name or extension check (see `SUPPORTED_CONFIG_FILES`, `isPlainCsvFile`, `isEncryptedCsvFile`).
+2. Add a branch in `applyNamedFile` that saves it: text settings go into the `updates` object (and need a matching field in the project type and `firestore.rules`), data files go to IndexedDB with `upsertLocalCsv`.
+3. For a new online source, add a parser like `parseGitHubRepoUrl` and a fetch branch in `handleFetchFromOnline`.
+4. To use another encryption layout, change `decryptBrowser`. The current format is a 12-byte IV, then the ciphertext, then the 16-byte GCM tag, with the key made from the SHA-256 of the passphrase.
+
+## Recipe 9: add a new audience persona
 
 Personas live in `src/lib/dossierPersonas.ts` (school student, college graduate, NGO leader, data scientist). Add an entry there. The explainer and dossier screens read this list.
 
-## Recipe 8: add a new result display
+## Recipe 10: add a new result display
 
 `SmartResultViewer.tsx` picks a template (summary, table, explorer, raw) from the shape of the result. Add a new template there, and extend the shape detection. `.aistudio/artifacts/brain/.../implementation_plan.md` describes the intent.
 
@@ -79,7 +99,9 @@ Personas live in `src/lib/dossierPersonas.ts` (school student, college graduate,
 4. **Share data across devices.** Upload CSVs to Firebase Storage (already initialised in `firebase.ts`, not yet used) instead of IndexedDB only, and add matching storage rules.
 5. **Tighten the sandbox.** Run the worker inside a sandboxed iframe with a strict content-security policy, and self-host Danfo.js and TensorFlow.js instead of loading them from a CDN.
 6. **Control cost.** Add a per-user daily call limit on the server, and log token use per agent.
-7. **Tidy.** Rename the package, remove unused `express`/`tsx`, and fix the README to list all three keys.
+7. **Replace the client-side role check.** Keep roles in Firestore, enforce them in the rules, and drop the password table from the code. Move the decryption key out of the source too (ask the user for it, or have a server hand it out after sign-in).
+8. **Make online loading sturdier.** Support sub-folders, send a GitHub token through a server so private repositories and higher limits work, and stream large files.
+9. **Tidy.** Rename the package, remove unused `express`/`tsx`, and fix the README to list all three keys.
 
 ## Before you merge a change
 

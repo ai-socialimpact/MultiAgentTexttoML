@@ -31,6 +31,31 @@
 <p>A plain-language guide to what ImpactLens does, how it is put
 together, and where it needs attention. Based on the source code ("Oct
 10 vN1 Tech4Dev: ImpactLens").</p>
+<h2 id="what-changed-in-the-november-26-version">What changed in the
+November 26 version</h2>
+<p>This guide covers the upgraded app. Compared with the first version,
+it adds:</p>
+<ul>
+<li><strong>Two access levels (roles).</strong> After Google sign-in,
+the user picks <strong>Pro</strong> or <strong>Basic</strong> and types
+that role's password. Pro sees every tab. Basic sees only Favourites,
+History, Saved Queries and Files. A wrong password locks the screen for
+20 minutes the first time and 60 minutes after each later mistake.</li>
+<li><strong>Load data from the internet.</strong> The Files tab can
+fetch project files from a GitHub repository (or a direct file link)
+instead of uploading them by hand.</li>
+<li><strong>Encrypted CSVs.</strong> Files ending in
+<code>.csv.enc</code> are decrypted in the browser (AES-GCM) and stored
+like normal CSVs.</li>
+<li><strong>New project flow.</strong> A new project opens straight on
+the Files tab. Returning Pro users land on Answer Strategically, Basic
+users on Favourites. Tab order changed, and Wizard is no longer
+first.</li>
+<li><strong>Header changes.</strong> A role badge and a <strong>Switch
+Role</strong> button.</li>
+<li><strong>A new Firebase database</strong> (new project config
+values). Firestore rules and the AI agents are unchanged.</li>
+</ul>
 <h2 id="1-what-the-app-does">1. What the app does</h2>
 <p>ImpactLens lets people at NGOs ask questions about their data in
 plain English and get answers back, without writing code. The user
@@ -96,6 +121,9 @@ other data.</td>
 </tr>
 </tbody>
 </table>
+<p><strong>Access by role.</strong> Pro: all tabs above. Basic:
+Favourites, History, Saved Queries and Files only. Basic users can run
+saved queries but cannot open them in Answer Strategically.</p>
 <h2 id="2-architecture-at-a-glance">2. Architecture at a glance</h2>
 <p>ImpactLens is a <strong>single-page web app that runs entirely in the
 browser</strong>. There is no application server of its own. It talks
@@ -126,11 +154,16 @@ pictures.</p>
 <li><strong>UI shell (<code>App.tsx</code>,
 <code>Dashboard.tsx</code>).</strong> Shows Login, then Project
 selection, then the tabbed Dashboard.</li>
+<li><strong>Role gate (<code>ProjectSelection.tsx</code>,
+<code>AuthContext.tsx</code>).</strong> After sign-in the user chooses
+Pro or Basic and enters a password. The chosen role is held in memory
+only, so a page reload asks again. <code>Dashboard.tsx</code> filters
+tabs by role.</li>
 <li><strong>Contexts.</strong> <code>AuthContext</code> handles Google
-sign-in and creates a user record. <code>ProjectContext</code> lists and
-creates the user's projects (live from Firestore).
-<code>SettingsContext</code> stores which model each agent uses, in the
-browser.</li>
+sign-in, creates a user record and holds the role.
+<code>ProjectContext</code> lists and creates the user's projects (live
+from Firestore). <code>SettingsContext</code> stores which model each
+agent uses, in the browser.</li>
 <li><strong>Agents (<code>lib/agents.ts</code>, about 40
 functions).</strong> Each is a prompt plus parsing. Examples: Query
 Interpreter (rewrites the question to match column names), Planner, Code
@@ -147,10 +180,29 @@ Danfo.js (<code>dfd</code>) and TensorFlow.js (<code>tf</code>).</li>
 <code>FormattedAnswerDisplay</code> show any result (text, tables,
 charts, nested JSON) readably. <code>ConsistencyReportModal</code> shows
 consistency reports.</li>
+<li><strong>Online file loader (<code>Files.tsx</code>).</strong> Lists
+a GitHub repository through the GitHub API (or takes a direct file URL),
+downloads the supported files, decrypts <code>.csv.enc</code> files in
+the browser, and saves everything like a normal upload. If a repository
+has encrypted CSVs it skips the plain ones.</li>
 <li><strong>Storage.</strong> CSV files stay in the browser (IndexedDB
 via Dexie). Projects, history and favourites go to Firestore.</li>
 </ul>
 <h2 id="3-key-data-flows">3. Key data flows</h2>
+<p><strong>0. Getting data in (Files tab)</strong></p>
+<ol type="1">
+<li>Either upload files from the computer, or enter a GitHub repository
+URL (or direct file links) and press fetch.</li>
+<li>For a repository, the app lists its top-level files (or a
+sub-folder) and picks <code>schemadescription.txt</code>,
+<code>few_shot_description.txt</code>,
+<code>classifer_guidelines.txt</code>,
+<code>Few_shot_examples.json</code> and the CSVs.</li>
+<li>Files ending <code>.csv.enc</code> are decrypted in the browser with
+a passphrase typed in the form, and saved as <code>.csv</code>.</li>
+<li>CSVs go to IndexedDB. The text files go into the Firestore project
+record. Progress and errors show on the page.</li>
+</ol>
 <p><strong>A. Asking a question (Wizard)</strong></p>
 <ol type="1">
 <li>User types a question. The Query Interpreter rewrites it using the
@@ -176,10 +228,11 @@ several variants. Each is run independently. An agent compares the
 answers and produces a report.</p>
 <p><strong>D. Favourite search.</strong> Favourites for the project are
 loaded and an AI model picks the closest matches to a new question.</p>
-<p><strong>What leaves the browser:</strong> the question, the column
-schema, a sample of data and results are sent inside prompts to the AI
-providers. Projects, history and favourites go to Firestore. Raw CSV
-files are not uploaded.</p>
+<p><strong>What comes in from outside:</strong> project files fetched
+from GitHub. <strong>What leaves the browser:</strong> the question, the
+column schema, a sample of data and results are sent inside prompts to
+the AI providers. Projects, history and favourites go to Firestore. Raw
+CSV files are not uploaded.</p>
 <h2 id="4-external-dependencies">4. External dependencies</h2>
 <table>
 <thead>
@@ -205,6 +258,10 @@ files are not uploaded.</p>
 <tr class="even">
 <td>jsDelivr CDN</td>
 <td>Loads Danfo.js and TensorFlow.js into the worker at run time</td>
+</tr>
+<tr class="odd">
+<td>GitHub API and raw.githubusercontent.com</td>
+<td>Optional: download project files from a repository</td>
 </tr>
 </tbody>
 </table>
@@ -233,10 +290,11 @@ TypeScript check.</li>
 <code>firebase-applet-config.json</code>. To use your own, replace that
 file and deploy <code>firestore.rules</code>. Enable Google sign-in in
 Firebase.</li>
-<li>In the app: sign in, create a project, open <strong>Files in
-DB</strong>, and upload your CSVs plus
-<code>schemadescription.txt</code>. Optional:
-<code>few_shot_description.txt</code>,
+<li>In the app: sign in, choose a role and enter its password, then
+create a project. It opens on <strong>Files in DB</strong>, where you
+upload your CSVs plus <code>schemadescription.txt</code>, or fetch them
+from a GitHub repository. Use the Pro role to get the analysis tabs.
+Optional: <code>few_shot_description.txt</code>,
 <code>classifer_guidelines.txt</code> (spelled this way in the code),
 <code>Few_shot_examples.json</code>.</li>
 </ol>
@@ -246,6 +304,21 @@ there.</p>
 areas</h2>
 <p><strong>Needs attention</strong></p>
 <ul>
+<li><strong>The role passwords are not real security.</strong> The Pro
+and Basic passwords are written in the JavaScript that every visitor
+downloads, so anyone can read them. Roles are checked only in the
+browser, and Firestore rules know nothing about them. The lockout timer
+lives in the browser's localStorage, so clearing it resets it. Treat
+roles as a convenience that hides tabs, not as access control. For real
+control, store each user's role in Firestore (set by an admin) and
+enforce it in the rules.</li>
+<li><strong>A default decryption key and default repository URL are in
+the source.</strong> The decryption passphrase pre-fills the Files form
+and is also in the downloaded code, so the encryption protects the files
+only while they sit in the repository, not from anyone who uses the app.
+If the repository is public, the encrypted files are public too. Use a
+private repository (this app calls GitHub without a token, so it cannot
+read private ones) or a per-user key.</li>
 <li><strong>AI keys are exposed in the browser.</strong>
 <code>vite.config.ts</code> bakes the keys into the JavaScript, and the
 SDKs are created with <code>dangerouslyAllowBrowser: true</code>. Anyone
@@ -280,10 +353,14 @@ risky.</li>
 names across three vendors. Some names look like previews or may not
 exist for your keys. Failures are retried silently on the next model,
 which can mask problems and change results and cost.</li>
+<li><strong>Fetching is limited.</strong> Only one folder level is
+listed, GitHub's unauthenticated limit is about 60 requests an hour per
+visitor, and a big encrypted CSV is decrypted fully in memory.</li>
 <li><strong>Small mismatches.</strong> <code>package.json</code> is
 named <code>react-example</code>; the README does not mention the Claude
 or OpenAI keys; the Firestore blueprint omits the <code>dataFiles</code>
-field that the rules and code use.</li>
+field that the rules and code use; the role badge reads "Role 1: Pro
+Level" / "Role 2: Basic Level".</li>
 </ul>
 <p><strong>Unclear from the code</strong></p>
 <ul>
