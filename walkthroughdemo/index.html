@@ -1,0 +1,521 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ImpactLens Walkthrough: From Question to Saved Answer</title>
+<style>
+:root{
+  --bg:#0f1720; --fg:#f4f6f8; --muted:#9aa7b4; --accent:#3b82f6; --accent2:#22c55e; --card:rgba(10,16,24,.88);
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){ --bg:#eef2f6; --fg:#111827; --muted:#4b5563; --accent:#1d4ed8; --accent2:#15803d; --card:rgba(255,255,255,.95); }
+}
+:root[data-theme="dark"]{ --bg:#0f1720; --fg:#f4f6f8; --muted:#9aa7b4; --accent:#3b82f6; --accent2:#22c55e; --card:rgba(10,16,24,.88); }
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+body{display:flex;flex-direction:column;overflow:hidden}
+header{padding:12px 16px 0;display:flex;align-items:center;gap:12px}
+header h1{font-size:15px;margin:0;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar{height:4px;background:rgba(127,127,127,.25);border-radius:4px;margin:10px 16px 0;overflow:hidden}
+.bar > i{display:block;height:100%;width:0;background:var(--accent)}
+#stage{position:relative;flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:12px 16px}
+.frame{position:relative;width:min(100%,1100px);height:100%;border-radius:12px;overflow:hidden;background:#0b1118;box-shadow:0 10px 40px rgba(0,0,0,.35);display:flex;flex-direction:column;gap:10px;padding:48px 14px 14px}
+
+/* Top maps: macro (whole journey) and micro (steps inside the current stage) */
+#maps{flex:none;opacity:0;transition:opacity .5s ease;background:#f9fafb;border:1px solid #d1d5db;border-radius:12px;padding:8px 10px;color:#111827}
+#maps.on{opacity:1}
+#maps svg{display:block;width:100%;height:auto}
+#micro{margin-top:2px}
+#where{display:none;font-size:13px;font-weight:700;margin:0 0 4px;color:#111827}
+.mlab{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+.mnum{display:none}
+
+/* Content area under the maps */
+#content{position:relative;flex:1;min-height:0}
+#imgs,.svgslide{position:absolute;inset:0;border-radius:10px;overflow:hidden}
+#imgs{background:#e5e7eb}
+#imgs img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:0;transition:opacity .6s ease, transform 8s linear;transform-origin:center}
+#imgs img.on{opacity:1;transform:scale(1.02)}
+#imgs img.reduce{transform:none!important}
+.svgslide{opacity:0;transition:opacity .6s ease;background:var(--bg);display:flex;align-items:center;justify-content:center;pointer-events:none}
+.svgslide.on{opacity:1}
+.svgslide svg{width:100%;height:100%;max-height:100%}
+.svgslide text{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+.title-slide{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:24px;opacity:0;transition:opacity .6s ease;background:var(--bg);z-index:4;pointer-events:none}
+.title-slide.on{opacity:1}
+.title-slide h2{font-size:clamp(22px,4vw,38px);margin:0 0 10px}
+.title-slide p{color:var(--muted);max-width:640px;margin:0;line-height:1.55;font-size:clamp(14px,2vw,17px)}
+.thumb{position:absolute;top:10px;right:10px;width:min(24%,230px);border-radius:8px;border:2px solid rgba(255,255,255,.85);box-shadow:0 6px 18px rgba(0,0,0,.35);opacity:0;transition:opacity .5s ease;z-index:2}
+.thumb.on{opacity:1}
+.chip{position:absolute;top:12px;left:14px;background:var(--accent);color:#fff;font-weight:700;font-size:13px;padding:6px 10px;border-radius:999px;letter-spacing:.02em;opacity:0;transform:translateY(-6px);transition:all .45s ease;z-index:5}
+.chip.on{opacity:1;transform:none}
+.caption{flex:none;background:var(--card);color:var(--fg);border-radius:12px;padding:12px 16px;opacity:0;transform:translateY(12px);transition:all .5s ease;box-shadow:0 6px 24px rgba(0,0,0,.25);z-index:3}
+.caption.on{opacity:1;transform:none}
+.caption.hidden{display:none}
+.caption b{display:block;font-size:16px;margin-bottom:3px}
+.caption span{font-size:14px;line-height:1.45;color:var(--muted)}
+.pulse{position:absolute;right:18px;top:18px;width:14px;height:14px;border-radius:50%;background:var(--accent2);box-shadow:0 0 0 0 rgba(34,197,94,.7);animation:pulse 1.6s infinite;display:none;z-index:5}
+.pulse.on{display:block}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(34,197,94,.7)}70%{box-shadow:0 0 0 14px rgba(34,197,94,0)}100%{box-shadow:0 0 0 0 rgba(34,197,94,0)}}
+.controls{display:flex;gap:8px;align-items:center;justify-content:center;padding:4px 16px 14px;flex-wrap:wrap}
+button{font:inherit;border:1px solid rgba(127,127,127,.35);background:transparent;color:var(--fg);padding:8px 14px;border-radius:8px;cursor:pointer;min-height:40px}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+button:focus-visible{outline:3px solid var(--accent2);outline-offset:2px}
+#count{color:var(--muted);font-size:13px;min-width:72px;text-align:center}
+@media (max-width: 640px){
+  .thumb{display:none}
+  .caption span{font-size:13px}
+  .mlab.mx,.mg,.mt{display:none}
+  .mnum{display:block}
+  #where{display:block}
+}
+@media (prefers-reduced-motion: reduce){
+  #imgs img{transition:opacity .2s linear}
+  .pulse{animation:none}
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>ImpactLens walkthrough: from question to saved answer</h1>
+</header>
+<div class="bar" aria-hidden="true"><i id="prog"></i></div>
+<div id="stage">
+  <div class="frame" id="frame" role="region" aria-label="Walkthrough slides" aria-live="polite">
+    <div class="title-slide" id="titleSlide">
+      <h2 id="titleH"></h2>
+      <p id="titleP"></p>
+    </div>
+    <div id="maps" aria-hidden="true"><div id="where"></div><div id="macro"></div><div id="micro"></div></div>
+    <div id="content">
+      <div id="imgs"></div>
+      <div class="svgslide" id="svgSlide" aria-hidden="true"></div>
+      <img class="thumb" id="thumb" alt="">
+    </div>
+    <div class="chip" id="chip"></div>
+    <div class="pulse" id="pulse" aria-hidden="true"></div>
+    <div class="caption" id="caption"><b></b><span></span></div>
+  </div>
+</div>
+<div class="controls">
+  <button id="prev" aria-label="Previous slide">&#9664; Back</button>
+  <button id="play" class="primary" aria-label="Pause">Pause</button>
+  <button id="next" aria-label="Next slide">Next &#9654;</button>
+  <span id="count" aria-live="off"></span>
+</div>
+
+<script>
+(function(){
+  // ---------- The two maps ----------
+  // Macro map: the Welcome tab's day-by-day story, plus Role 2 reuse.
+  // Micro map: the small steps inside the current stage.
+  var MACRO = [
+    {a:"Step 0",     b:"Point to data",    chip:"Step 0"},
+    {a:"Breakfast",  b:"Ask Miss.DS",      chip:"Day 1 · Breakfast"},
+    {a:"Lunch",      b:"Interview",        chip:"Day 1 · Lunch"},
+    {a:"Evening",    b:"Save",             chip:"Day 1 · Evening"},
+    {a:"Breakfast",  b:"Meet Mr.Quality",  chip:"Day 2 · Breakfast"},
+    {a:"Lunch",      b:"Sign-off",         chip:"Day 2 · Lunch"},
+    {a:"Role 2",     b:"Reuse",            chip:"Role 2 · Reuse"}
+  ];
+  var GROUPS = [[0,0,"SET UP"],[1,3,"DAY 1 · MISS.DS"],[4,5,"DAY 2 · MR.QUALITY"],[6,6,"REUSE"]];
+  var MICRO = [
+    ["Sign in","Pick role","Password","Open project","Data ready"],
+    ["Type question","Plan 5 steps","Step runs","All done","Dossier"],
+    ["Follow-ups","Add charts","HTML report"],
+    ["Press Save","Fingerprint","Tag","Shared library","Team sees it"],
+    ["Wording","5 checks","Result"],
+    ["Full dossier","Discuss","Refine"],
+    ["Role 2 view","Load data","Match","Re-run","Compare","Audience"]
+  ];
+
+  // ---------- Slides (macro stage m, micro step u; us = timed micro changes [seconds, step]). About 3 min 40 s. ----------
+  var SLIDES = [
+    {kind:"text", chip:"Start", t:"Follow one question from data to saved answer", s:"This tour follows the same day-by-day story as the Welcome tab: point to the data, ask on Day 1, check on Day 2, save the answer, then reuse it. The map on top shows where you are.", d:5},
+    {kind:"personas", chip:"Who", t:"Three roles work together", s:"You ask. Miss.DS plans and runs the analysis on Day 1. Mr.Quality checks it with five independent teams on Day 2.", d:12, m:-1, thumb:"img/19.jpg"},
+
+    {kind:"img", img:"img/02.jpg", t:"Pick your access role", s:"Role 1 (Pro) shows every tab. Role 2 (Basic) shows five. Choose the card that matches your access.", d:7, m:0, u:1},
+    {kind:"img", img:"img/03.jpg", t:"Type the role password", s:"A password box follows. Type it and press Enter App.", d:6, m:0, u:2},
+    {kind:"img", img:"img/04.jpg", t:"Step 0: point to the data", s:"Welcome shows a green Ready bar with the CSV files and rows loaded. Miss.DS and Mr.Quality work from these verified rows.", d:8, m:0, u:4},
+
+    {kind:"img", img:"img/05.jpg", t:"Breakfast: tell Miss.DS your question", s:"In Answer Strategically, type a plain question, pick who the answer is for, then press Plan and Stage.", d:7, m:1, u:0},
+    {kind:"img", img:"img/07.jpg", t:"Miss.DS plans five steps", s:"Each step has its own card. Start Step 1 runs the first one, and auto-advance runs the rest.", d:7, m:1, u:1},
+    {kind:"img", img:"img/08.jpg", t:"Each step runs and reports", s:"A finished step shows its result and a link to the technical method.", d:6, m:1, u:2},
+    {kind:"img", img:"img/10.jpg", t:"All five steps are done", s:"A banner says the work is ready for the Strategic Master Dossier.", d:6, m:1, u:3},
+    {kind:"img", img:"img/11.jpg", t:"The Strategic Master Dossier appears", s:"It gathers the verdict, the evidence and a confidence score for the audience you picked.", d:7, m:1, u:4},
+
+    {kind:"img", img:"img/13.jpg", t:"Lunch: interview Miss.DS", s:"Ask follow-up questions with Explain Simply. Each answer joins the consultation record.", d:7, m:2, u:0},
+    {kind:"img", img:"img/14.jpg", t:"Add charts to the report", s:"Make a Chart adds visuals. Each has a takeaway that says what it does and does not show.", d:6, m:2, u:1},
+    {kind:"img", img:"img/15.jpg", t:"Receive a downloadable HTML report", s:"Pick the persona, the file name and the sections, then press Download Custom HTML Report.", d:7, m:2, u:2},
+
+    {kind:"img", img:"img/12.jpg", t:"Evening: press Save to Favourites", s:"The button changes to Saved (2 SHAs): one fingerprint for each CSV file.", d:7, m:3, u:0},
+    {kind:"savefav", t:"How Save to Favourites works", s:"Save fingerprints each CSV, tags the answer with project, saver and source tab, and writes it to one shared library. Everyone signed in can open it.", d:14, m:3, us:[[0,0],[2.5,1],[5,2],[7.8,3],[10.9,4]]},
+    {kind:"img", img:"img/16.jpg", t:"Your team sees it in Favourites", s:"Shared Favourite Queries lists the saved answer with its source, date and project tags.", d:7, m:3, u:4},
+
+    {kind:"img", img:"img/17.jpg", t:"Day 2 breakfast: meet Mr.Quality", s:"Give him a question, a question with an answer, or an answer with its steps. He first checks the wording against the data columns.", d:8, m:4, u:0},
+    {kind:"img", img:"img/18.jpg", t:"Five teams, five methods", s:"Each team tests the question a different way. Run All 5 Checks runs them one after another.", d:7, m:4, u:1},
+    {kind:"img", img:"img/19.jpg", t:"Here's what we found", s:"4 of 5 checks agree. The link is weak, not moderate. Save puts this result in Favourites too.", d:8, m:4, u:2},
+
+    {kind:"img", img:"img/20.jpg", t:"Lunch: the Professional Dossier", s:"Numbered sections, a consistency index and a plain conclusion. Download it as an HTML report for audit trails.", d:7, m:5, u:0},
+    {kind:"img", img:"img/21.jpg", t:"Discuss and refine", s:"Ask a Question, Refine the Report and Add Visuals change the dossier without re-running the analysis.", d:7, m:5, us:[[0,1],[4,2]]},
+
+    {kind:"img", img:"img/23.jpg", t:"Role 2: the Basic view", s:"Basic shows Welcome, Favourites, Saved Queries, History and Files in DB. It reviews and re-runs saved work. Starting a new analysis needs Pro.", d:8, m:6, u:0},
+    {kind:"role2find", t:"Role 2: find a saved answer", s:"Load your CSVs in Files in DB, open Favourites, and press Match to see saved answers whose columns fit your data.", d:14, m:6, us:[[0,1],[5,2]]},
+    {kind:"role2run", t:"Run it on your data", s:"Match compares column fingerprints. A fit can be re-run in your browser on the loaded CSVs, and the New result appears beside the Previous one.", d:16, m:6, us:[[0,2],[6.5,3],[10.5,4]]},
+    {kind:"img", img:"img/22.jpg", t:"Previous and New, side by side", s:"Run the saved code again shows both results, with a note on what changed.", d:8, m:6, u:4},
+    {kind:"audience", t:"One analysis, written for each reader", s:"Pick a persona such as the NGO Program Leader. The same analysis is rewritten for that reader and the numbers stay the same.", d:10, m:6, u:5},
+
+    {kind:"text", chip:"Summary", t:"Take-aways", s:"Day 1 Miss.DS answers. Day 2 Mr.Quality checks. Save to Favourites shares the answer, and Role 2 users can re-run it on their own data. The demo's finding: the link between cause of work and social action is positive but weak, not moderate.", d:10}
+  ];
+
+  var imgsEl = document.getElementById("imgs");
+  var mapsEl = document.getElementById("maps");
+  var whereEl = document.getElementById("where");
+  var macroEl = document.getElementById("macro");
+  var microEl = document.getElementById("micro");
+  var titleEl = document.getElementById("titleSlide");
+  var titleH = document.getElementById("titleH");
+  var titleP = document.getElementById("titleP");
+  var svgEl = document.getElementById("svgSlide");
+  var thumbEl = document.getElementById("thumb");
+  var chipEl = document.getElementById("chip");
+  var capEl = document.getElementById("caption");
+  var pulseEl = document.getElementById("pulse");
+  var progEl = document.getElementById("prog");
+  var countEl = document.getElementById("count");
+  var playBtn = document.getElementById("play");
+  var prevBtn = document.getElementById("prev");
+  var nextBtn = document.getElementById("next");
+
+  var reduce = false;
+  try { reduce = !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches); } catch(e) {}
+
+  var imgEls = SLIDES.map(function(sl){
+    if (sl.kind !== "img") return null;
+    var im = document.createElement("img");
+    im.alt = sl.t;
+    im.src = sl.img;
+    imgsEl.appendChild(im);
+    return im;
+  });
+
+  function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+  // ---------- Map builders ----------
+  function buildMacro(active){
+    var W = 960, H = 64, n = MACRO.length, gap = 6, w = (W - gap*(n-1)) / n, out = [];
+    GROUPS.forEach(function(g){
+      var x0 = g[0]*(w+gap), x1 = g[1]*(w+gap) + w;
+      out.push('<rect x="'+x0+'" y="0" width="'+(x1-x0)+'" height="16" rx="8" fill="#e0e7ff"/>');
+      out.push('<text class="mlab mg" x="'+((x0+x1)/2)+'" y="12" text-anchor="middle" font-size="11" font-weight="700" fill="#1e3a8a" letter-spacing=".04em">'+esc(g[2])+'</text>');
+    });
+    MACRO.forEach(function(m, i){
+      var x = i * (w + gap), on = (i === active), done = (active >= 0 && i < active);
+      var fill = on ? "#2563eb" : (done ? "#bfdbfe" : "#e5e7eb");
+      var tc = on ? "#ffffff" : "#111827";
+      var sc = on ? "#dbeafe" : "#374151";
+      out.push('<rect x="'+x+'" y="20" width="'+w+'" height="42" rx="8" fill="'+fill+'" stroke="#374151" stroke-width="'+(on?1.8:1)+'"/>');
+      out.push('<text class="mlab mt" x="'+(x+w/2)+'" y="38" text-anchor="middle" font-size="14" font-weight="700" fill="'+tc+'">'+esc(m.a)+'</text>');
+      out.push('<text class="mlab mt" x="'+(x+w/2)+'" y="54" text-anchor="middle" font-size="12" fill="'+sc+'">'+esc(m.b)+'</text>');
+      out.push('<text class="mlab mnum" x="'+(x+w/2)+'" y="50" text-anchor="middle" font-size="26" font-weight="700" fill="'+tc+'">'+i+'</text>');
+    });
+    return '<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Big picture: stage '+(active+1)+' of '+n+'">'+out.join("")+'</svg>';
+  }
+
+  function buildMicro(stage, active){
+    if (stage < 0) return "";
+    var labs = MICRO[stage], W = 960, H = 42, n = labs.length, gap = W / n, out = [];
+    out.push('<line x1="'+(gap/2)+'" y1="12" x2="'+(W-gap/2)+'" y2="12" stroke="#9ca3af" stroke-width="2.5"/>');
+    labs.forEach(function(lab, i){
+      var cx = gap*i + gap/2, on = (i === active), done = (i < active);
+      var fill = on ? "#2563eb" : (done ? "#93c5fd" : "#e5e7eb");
+      out.push('<circle cx="'+cx+'" cy="12" r="'+(on?9:6)+'" fill="'+fill+'" stroke="#374151" stroke-width="1.2"/>');
+      out.push('<text class="mlab'+(on?'':' mx')+'" x="'+cx+'" y="36" text-anchor="middle" font-size="13" font-weight="'+(on?'700':'400')+'" fill="#111827">'+esc(lab)+'</text>');
+    });
+    return '<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Small steps: '+esc(labs[Math.max(0,Math.min(active,n-1))])+'">'+out.join("")+'</svg>';
+  }
+
+  // ---------- SVG helpers for the animated slides ----------
+  var HI = "#fde68a";
+  function hl(dur, k0, k1, base){
+    var a = k0.toFixed(3), b = (k0+0.01).toFixed(3), c = k1.toFixed(3), d = Math.min(k1+0.01, 0.995).toFixed(3);
+    return '<animate attributeName="fill" values="'+base+';'+base+';'+HI+';'+HI+';'+base+';'+base+'" keyTimes="0;'+a+';'+b+';'+c+';'+d+';1" dur="'+dur+'s" repeatCount="indefinite"/>';
+  }
+  function R(x, y, w, h, fill, anim, rx){
+    return '<rect x="'+x+'" y="'+y+'" width="'+w+'" height="'+h+'" rx="'+(rx||10)+'" fill="'+fill+'" stroke="#374151" stroke-width="1.3">'+(anim||'')+'</rect>';
+  }
+  function T(x, y, s, size, weight, fill, anchor){
+    return '<text x="'+x+'" y="'+y+'" text-anchor="'+(anchor||'middle')+'" font-size="'+size+'" font-weight="'+(weight||400)+'" fill="'+(fill||'#111827')+'">'+esc(s)+'</text>';
+  }
+  function A(d){ return '<path d="'+d+'" fill="none" stroke="#6b7280" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#ah)"/>'; }
+  function DEFS(){ return '<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#6b7280"/></marker></defs>'; }
+  function DOT(path, dur, kp, kt){
+    return '<circle cx="0" cy="0" r="8" fill="#f59e0b" stroke="#111827" stroke-width="1"><animateMotion dur="'+dur+'s" repeatCount="indefinite" path="'+path+'" keyPoints="'+kp+'" keyTimes="'+kt+'" calcMode="linear"/></circle>';
+  }
+  function PERSON(x, y, fill, name, sub, anim){
+    return '<circle cx="'+x+'" cy="'+y+'" r="30" fill="'+fill+'" stroke="#374151" stroke-width="1.3">'+(anim||'')+'</circle>' +
+      '<circle cx="'+x+'" cy="'+(y-8)+'" r="9" fill="#fff" stroke="#374151" stroke-width="1"/>' +
+      '<path d="M'+(x-15)+' '+(y+18)+' Q'+x+' '+(y+2)+' '+(x+15)+' '+(y+18)+'" fill="#fff" stroke="#374151" stroke-width="1"/>' +
+      T(x, y+48, name, 13, 700, 'currentColor') + (sub ? T(x, y+63, sub, 11, 400, '#6b7280') : '');
+  }
+  function wrap(w, h, label, body){
+    return '<svg viewBox="0 0 '+w+' '+h+'" role="img" aria-label="'+esc(label)+'"><g style="color:var(--fg)">'+DEFS()+body+'</g></svg>';
+  }
+
+  // ---------- Animated slides ----------
+  function buildPersonas(){
+    var P = {you:{x:170,y:170,fill:"#dbeafe",t:"You",r:"decision lead"}, miss:{x:480,y:80,fill:"#ede9fe",t:"Miss.DS",r:"virtual data scientist"}, mr:{x:790,y:170,fill:"#dcfce7",t:"Mr.Quality",r:"5-team auditor"}};
+    var legs = [
+      {d:"M 214 150 L 436 98", lab:"Ask a question", lx:296, ly:100, off:0},
+      {d:"M 440 120 L 220 170", lab:"5-step results", lx:322, ly:172, off:3},
+      {d:"M 250 220 L 726 220", lab:"Check the answer", lx:490, ly:206, off:6},
+      {d:"M 726 246 L 250 246", lab:"Five checks: 4 of 5 agree", lx:490, ly:270, off:9}
+    ];
+    var out = [];
+    legs.forEach(function(l){
+      out.push(A(l.d));
+      out.push('<text x="'+l.lx+'" y="'+l.ly+'" text-anchor="middle" font-size="13" fill="currentColor">'+esc(l.lab)+'</text>');
+    });
+    Object.keys(P).forEach(function(k){
+      var p = P[k];
+      out.push('<circle cx="'+p.x+'" cy="'+p.y+'" r="42" fill="'+p.fill+'" stroke="#374151" stroke-width="1.4"/>');
+      out.push('<circle cx="'+p.x+'" cy="'+(p.y-10)+'" r="12" fill="#fff" stroke="#374151" stroke-width="1"/>');
+      out.push('<path d="M'+(p.x-20)+' '+(p.y+25)+' Q'+p.x+' '+(p.y+4)+' '+(p.x+20)+' '+(p.y+25)+'" fill="#fff" stroke="#374151" stroke-width="1"/>');
+      out.push('<text x="'+p.x+'" y="'+(p.y+62)+'" text-anchor="middle" font-size="15" font-weight="700" fill="currentColor">'+esc(p.t)+'</text>');
+      out.push('<text x="'+p.x+'" y="'+(p.y+78)+'" text-anchor="middle" font-size="11.5" fill="#6b7280">'+esc(p.r)+'</text>');
+    });
+    function ringFor(key, begin){
+      var s = begin/12, e = (begin+3)/12, p = P[key];
+      return '<circle cx="'+p.x+'" cy="'+p.y+'" r="49" fill="none" stroke="#22c55e" stroke-width="3" opacity="0"><animate attributeName="opacity" values="0;1;1;0;0" keyTimes="0;'+s.toFixed(4)+';'+(e-0.01).toFixed(4)+';'+e.toFixed(4)+';1" dur="12s" repeatCount="indefinite"/></circle>';
+    }
+    out.push(ringFor("miss", 0), ringFor("you", 3), ringFor("mr", 6), ringFor("you", 9));
+    legs.forEach(function(l){
+      var a = l.off/12, b = a + 0.25;
+      out.push(DOT(l.d, 12, "0;0;1;1", "0;"+a.toFixed(3)+";"+b.toFixed(3)+";1"));
+    });
+    out.push('<text x="480" y="318" text-anchor="middle" font-size="12.5" fill="#6b7280">Each dot is one message. The green ring shows who is busy.</text>');
+    return wrap(960, 330, "Animated: You ask Miss.DS, Miss.DS returns results, You send the answer to Mr.Quality, who returns the verdict", out.join(""));
+  }
+
+  // How Save to Favourites works (14 s loop)
+  function buildSaveFav(){
+    var D = 14, o = [];
+    o.push(A("M 212 90 L 248 90"), A("M 442 90 L 478 90"), A("M 672 90 L 708 90"));
+    o.push(A("M 790 142 L 640 214"), A("M 825 142 L 760 214"), A("M 860 142 L 880 214"));
+    // boxes
+    o.push(R(20, 40, 190, 100, "#eff6ff", hl(D, 0.0, 0.14, "#eff6ff")));
+    o.push(T(115, 66, "Strategic Master", 14, 700), T(115, 83, "Dossier", 14, 700));
+    o.push(R(45, 98, 140, 30, "#fbbf24", null, 15), T(115, 118, "Save to Favourites", 12, 700));
+    o.push(R(250, 40, 190, 100, "#eff6ff", hl(D, 0.18, 0.34, "#eff6ff")));
+    o.push(T(345, 70, "1. Fingerprint", 14, 700), T(345, 90, "one SHA for each", 12.5, 400, "#374151"), T(345, 106, "CSV file (2 SHAs)", 12.5, 400, "#374151"));
+    o.push(R(480, 40, 190, 100, "#eff6ff", hl(D, 0.36, 0.52, "#eff6ff")));
+    o.push(T(575, 70, "2. Tag it", 14, 700), T(575, 90, "project name, who saved", 12.5, 400, "#374151"), T(575, 106, "it, source tab, shared", 12.5, 400, "#374151"));
+    o.push(DOT("M 790 128 L 640 214", D, "0;0;1;1", "0;0.65;0.8;1"));
+    o.push(DOT("M 825 128 L 760 214", D, "0;0;1;1", "0;0.65;0.8;1"));
+    o.push(DOT("M 860 128 L 880 214", D, "0;0;1;1", "0;0.65;0.8;1"));
+    o.push(R(710, 40, 230, 100, "#dcfce7", hl(D, 0.56, 0.72, "#dcfce7")));
+    o.push(T(825, 70, "3. Shared library", 14, 700), T(825, 90, "Favourites: one list", 12.5, 400, "#374151"), T(825, 106, "that everyone signed in reads", 12.5, 400, "#374151"));
+    // viewers
+    o.push(PERSON(640, 244, "#dbeafe", "You (Pro)", "", hl(D, 0.78, 0.95, "#dbeafe")));
+    o.push(PERSON(760, 244, "#ede9fe", "A teammate", "", hl(D, 0.78, 0.95, "#ede9fe")));
+    o.push(PERSON(880, 244, "#dcfce7", "Role 2 user", "", hl(D, 0.78, 0.95, "#dcfce7")));
+    // what is stored
+    o.push(R(20, 180, 500, 118, "#f9fafb"));
+    o.push(T(36, 204, "What a favourite holds", 14, 700, "#111827", "start"));
+    o.push(T(36, 227, "The question and the analysis plan", 13, 400, "#374151", "start"));
+    o.push(T(36, 247, "The code, the result and the verdict", 13, 400, "#374151", "start"));
+    o.push(T(36, 267, "The tags: project, saver, source tab, date", 13, 400, "#374151", "start"));
+    o.push(T(36, 287, "The data fingerprints, so a re-run can tell if data changed", 13, 400, "#374151", "start"));
+    o.push(T(480, 326, "A favourite can contain results, so save only what the team may see.", 12.5, 400, "#6b7280"));
+    // moving dots (drawn last)
+    o.push(DOT("M 115 90 L 345 90 L 575 90 L 825 90", D, "0;1;1", "0;0.6;1"));
+    return wrap(960, 336, "Animated: Save to Favourites fingerprints each CSV, tags the answer, and writes it to a shared library that everyone signed in can read", o.join(""));
+  }
+
+  // Role 2: find a saved answer (14 s loop)
+  function buildRole2Find(){
+    var D = 14, o = [];
+    var tabs = ["Welcome","Favourites","Saved Queries","History","Files in DB"];
+    o.push(T(20, 16, "ROLE 2 (BASIC): FIVE TABS", 12, 700, "currentColor", "start"));
+    tabs.forEach(function(t, i){
+      var anim = "";
+      if (i === 4) anim = hl(D, 0.0, 0.28, "#e5e7eb");
+      if (i === 1) anim = hl(D, 0.3, 0.9, "#e5e7eb");
+      o.push(R(20 + i*184, 26, 172, 38, "#e5e7eb", anim, 8), T(20 + i*184 + 86, 50, t, 13, 700));
+    });
+    o.push(A("M 300 150 L 338 150"), A("M 620 150 L 658 150"));
+    o.push(R(20, 110, 280, 90, "#eff6ff", hl(D, 0.0, 0.24, "#eff6ff")));
+    o.push(T(160, 138, "1. Files in DB", 14, 700), T(160, 160, "Add your own CSV files:", 12.5, 400, "#374151"), T(160, 177, "upload or fetch them", 12.5, 400, "#374151"));
+    o.push(R(340, 110, 280, 90, "#eff6ff", hl(D, 0.3, 0.56, "#eff6ff")));
+    o.push(T(480, 138, "2. Favourites", 14, 700), T(480, 160, "Press Match: shows saved", 12.5, 400, "#374151"), T(480, 177, "answers that fit your columns", 12.5, 400, "#374151"));
+    o.push(R(660, 110, 280, 90, "#eff6ff", hl(D, 0.62, 0.9, "#eff6ff")));
+    o.push(T(800, 138, "3. Open a card", 14, 700), T(800, 160, "See the plan, chart", 12.5, 400, "#374151"), T(800, 177, "and verdict", 12.5, 400, "#374151"));
+    // filter chips
+    o.push(T(480, 232, "Favourites filters", 12, 700, "currentColor"));
+    o.push(R(380, 242, 60, 30, "#e5e7eb", null, 15), T(410, 262, "All", 12.5, 700));
+    o.push(R(450, 242, 70, 30, "#e5e7eb", hl(D, 0.3, 0.56, "#e5e7eb"), 15), T(485, 262, "Match", 12.5, 700));
+    o.push(R(530, 242, 110, 30, "#e5e7eb", null, 15), T(585, 262, "Saved by Me", 12.5, 700));
+    o.push(T(480, 304, "Match hides saved answers built on different columns, so every card you see can run on your data.", 13, 400, "#6b7280"));
+    o.push(T(480, 324, "Role 2 can browse and re-run. Starting a new analysis in Answer Strategically needs Pro.", 13, 400, "#6b7280"));
+    o.push(DOT("M 160 155 L 480 155 L 800 155", D, "0;1;1", "0;0.7;1"));
+    return wrap(960, 336, "Animated: Role 2 loads CSV files in Files in DB, opens Favourites, presses Match, and opens a saved card", o.join(""));
+  }
+
+  // Role 2: run a favourite on your data (16 s loop)
+  function buildRole2Run(){
+    var D = 16, o = [];
+    o.push(A("M 260 65 L 322 122"), A("M 260 195 L 322 138"), A("M 478 130 L 498 130"), A("M 700 130 L 738 130"), A("M 400 176 L 400 208"));
+    o.push(R(20, 20, 240, 90, "#eff6ff", hl(D, 0.0, 0.12, "#eff6ff")));
+    o.push(T(140, 46, "Saved favourite", 14, 700), T(140, 68, "question + analysis code", 12.5, 400, "#374151"), T(140, 86, "column fingerprint of old data", 12.5, 400, "#374151"));
+    o.push(R(20, 150, 240, 90, "#eff6ff", hl(D, 0.1, 0.22, "#eff6ff")));
+    o.push(T(140, 176, "Your CSV files", 14, 700), T(140, 198, "loaded in Files in DB", 12.5, 400, "#374151"), T(140, 216, "column fingerprint of your data", 12.5, 400, "#374151"));
+    var dia = "400,85 475,130 400,175 325,130";
+    o.push('<polygon points="'+dia+'" fill="#f9fafb" stroke="#374151" stroke-width="1.3">'+hl(D, 0.25, 0.4, "#f9fafb")+'</polygon>');
+    o.push(T(400, 126, "Same", 13, 700), T(400, 142, "columns?", 13, 700));
+    o.push(T(489, 120, "yes", 12, 400, "currentColor"));
+    o.push(R(500, 85, 200, 90, "#eff6ff", hl(D, 0.42, 0.62, "#eff6ff")));
+    o.push(T(600, 112, "Run the saved code", 14, 700), T(600, 134, "in your browser, on", 12.5, 400, "#374151"), T(600, 151, "the loaded CSV files", 12.5, 400, "#374151"));
+    o.push(R(740, 60, 200, 140, "#dcfce7", hl(D, 0.65, 0.9, "#dcfce7")));
+    o.push(T(840, 88, "New result", 14, 700), T(840, 110, "next to the Previous", 12.5, 400, "#374151"), T(840, 127, "result, plus", 12.5, 400, "#374151"), T(840, 144, "\"What changed from the", 12.5, 400, "#374151"), T(840, 161, "previous saved result\"", 12.5, 400, "#374151"));
+    o.push(T(418, 196, "no", 12, 400, "currentColor", "start"));
+    o.push(R(290, 210, 220, 40, "#f3f4f6", null, 8), T(400, 235, "Match hides the card", 12.5, 400, "#374151"));
+    o.push(T(20, 278, "BUTTONS ON AN OPEN CARD", 12, 700, "currentColor", "start"));
+    o.push(R(20, 286, 300, 30, "#e5e7eb", null, 15), T(170, 306, "Run the saved code again", 12.5, 700));
+    o.push(R(340, 286, 300, 30, "#e5e7eb", null, 15), T(490, 306, "Run the code for another data", 12.5, 700));
+    o.push(R(660, 286, 280, 30, "#e5e7eb", null, 15), T(800, 306, "Suggest similar variations", 12.5, 700));
+    o.push(T(480, 334, "For new data, load the new CSV files first, then run. The middle button was seen in the app but not pressed in this demo.", 12.5, 400, "#6b7280"));
+    o.push(DOT("M 140 65 L 325 128 L 400 130 L 600 130 L 840 130", D, "0;1;1", "0;0.62;1"));
+    o.push(DOT("M 140 195 L 325 132", D, "0;1;1", "0;0.2;1"));
+    return wrap(960, 344, "Animated: a saved favourite and your CSV files meet at a column check. If the columns match, the saved code runs in the browser and a New result appears beside the Previous one", o.join(""));
+  }
+
+  function buildAudience(){
+    var names = ["School Student Intern (NGO)","College Grad Volunteer (NGO)","NGO Program Leader","Data Scientist"];
+    var out = [];
+    names.forEach(function(n,i){
+      var x = 60 + i*220;
+      out.push('<rect x="'+x+'" y="20" width="200" height="50" rx="10" fill="#e5e7eb" stroke="#374151" stroke-width="1.2"><animate attributeName="fill" values="#e5e7eb;#2563eb;#2563eb;#e5e7eb;#e5e7eb" keyTimes="0;0.02;0.22;0.27;1" dur="12s" begin="'+(i*3)+'s" repeatCount="indefinite"/></rect>');
+      out.push('<text x="'+(x+100)+'" y="50" text-anchor="middle" font-size="12.5" font-weight="700" fill="#111827"><animate attributeName="fill" values="#111827;#ffffff;#ffffff;#111827;#111827" keyTimes="0;0.02;0.22;0.27;1" dur="12s" begin="'+(i*3)+'s" repeatCount="indefinite"/>'+esc(n)+'</text>');
+    });
+    out.push('<rect x="60" y="100" width="840" height="140" rx="12" fill="#f9fafb" stroke="#9ca3af" stroke-width="1.2"/>');
+    out.push('<text x="90" y="134" font-size="15" font-weight="700" fill="#111827">What changes for each reader</text>');
+    out.push('<text x="90" y="162" font-size="14" fill="#374151">A student gets everyday words and analogies. A volunteer gets practical next steps.</text>');
+    out.push('<text x="90" y="186" font-size="14" fill="#374151">An NGO Program Leader gets a bottom line, the key pattern table and what changed.</text>');
+    out.push('<text x="90" y="210" font-size="14" fill="#374151">A data scientist gets the method detail. The numbers in every version are the same.</text>');
+    out.push('<text x="480" y="270" text-anchor="middle" font-size="12.5" fill="#6b7280">The highlighted chip changes every three seconds.</text>');
+    return wrap(960, 290, "Animated: four audience chips take turns, and the answer is rewritten for each reader", out.join(""));
+  }
+
+  var BUILDERS = {personas: buildPersonas, savefav: buildSaveFav, role2find: buildRole2Find, role2run: buildRole2Run, audience: buildAudience};
+
+  // ---------- Playback ----------
+  var idx = 0, playing = true, timer = null, startedAt = 0, elapsedBefore = 0, DURATION_TOTAL = 0, usTimers = [];
+  SLIDES.forEach(function(s){ DURATION_TOTAL += s.d; });
+
+  function hideAll(){
+    imgEls.forEach(function(im){ if (im) im.classList.remove("on"); });
+    titleEl.classList.remove("on");
+    svgEl.classList.remove("on");
+    thumbEl.classList.remove("on");
+    mapsEl.classList.remove("on");
+  }
+
+  function setWhere(m, u){
+    if (m < 0) { whereEl.textContent = ""; return; }
+    var lab = MICRO[m][u];
+    whereEl.textContent = "Stage " + m + ": " + MACRO[m].chip + (lab ? " \u00b7 " + lab : "");
+  }
+
+  function clearUs(){ usTimers.forEach(clearTimeout); usTimers = []; }
+
+  function show(i){
+    idx = (i + SLIDES.length) % SLIDES.length;
+    var sl = SLIDES[idx], here = idx;
+    hideAll();
+    clearUs();
+    chipEl.classList.remove("on");
+    capEl.classList.remove("on");
+
+    if (sl.kind === "text") {
+      titleH.textContent = sl.t;
+      titleP.textContent = sl.s;
+      titleEl.classList.add("on");
+    } else {
+      var u0 = sl.us ? sl.us[0][1] : sl.u;
+      macroEl.innerHTML = buildMacro(sl.m);
+      microEl.innerHTML = (sl.m >= 0) ? buildMicro(sl.m, u0) : "";
+      microEl.style.display = (sl.m >= 0) ? "" : "none";
+      setWhere(sl.m, u0);
+      whereEl.style.display = (sl.m >= 0) ? "" : "none";
+      mapsEl.classList.add("on");
+      if (sl.us) {
+        sl.us.forEach(function(p){
+          if (p[0] === 0) return;
+          usTimers.push(setTimeout(function(){ if (idx === here) { microEl.innerHTML = buildMicro(sl.m, p[1]); setWhere(sl.m, p[1]); } }, p[0]*1000));
+        });
+      }
+      if (sl.kind === "img") {
+        var im = imgEls[idx];
+        im.classList.toggle("reduce", reduce);
+        im.classList.remove("on"); void im.offsetWidth; im.classList.add("on");
+      } else {
+        svgEl.innerHTML = BUILDERS[sl.kind]();
+        svgEl.classList.add("on");
+      }
+    }
+
+    if (sl.thumb) { thumbEl.src = sl.thumb; thumbEl.alt = sl.t; thumbEl.classList.add("on"); }
+
+    capEl.classList.toggle("hidden", sl.kind === "text");
+    if (sl.kind !== "text") {
+      capEl.querySelector("b").textContent = sl.t;
+      capEl.querySelector("span").textContent = sl.s;
+    }
+
+    chipEl.textContent = sl.chip || (sl.m >= 0 ? MACRO[sl.m].chip : "Who");
+    void chipEl.offsetWidth; chipEl.classList.add("on");
+    if (sl.kind !== "text") {
+      setTimeout(function(){ capEl.classList.add("on"); }, reduce ? 0 : 250);
+    }
+    pulseEl.classList.toggle("on", idx === SLIDES.length - 1);
+    countEl.textContent = (idx + 1) + " / " + SLIDES.length;
+
+    elapsedBefore = SLIDES.slice(0, idx).reduce(function(a,s){ return a + s.d; }, 0);
+    startedAt = Date.now();
+    schedule(sl.d * 1000);
+  }
+
+  function schedule(ms){
+    clearTimeout(timer);
+    if (!playing) return;
+    timer = setTimeout(function(){ show(idx + 1); }, ms);
+  }
+
+  function setPlaying(p){
+    playing = p;
+    playBtn.textContent = p ? "Pause" : "Play";
+    playBtn.setAttribute("aria-label", p ? "Pause" : "Play");
+    if (p) schedule(SLIDES[idx].d * 1000); else clearTimeout(timer);
+  }
+
+  playBtn.addEventListener("click", function(){ setPlaying(!playing); });
+  prevBtn.addEventListener("click", function(){ show(idx - 1); });
+  nextBtn.addEventListener("click", function(){ show(idx + 1); });
+  document.addEventListener("keydown", function(e){
+    if (e.key === "ArrowRight") show(idx + 1);
+    else if (e.key === "ArrowLeft") show(idx - 1);
+    else if (e.key === " ") { e.preventDefault(); setPlaying(!playing); }
+  });
+
+  setInterval(function(){
+    var within = playing ? Math.min(1, (Date.now() - startedAt) / (SLIDES[idx].d * 1000)) : 0;
+    var done = elapsedBefore + within * SLIDES[idx].d;
+    progEl.style.width = Math.min(100, (done / DURATION_TOTAL) * 100) + "%";
+  }, 200);
+
+  show(0);
+})();
+</script>
+</body>
+</html>
