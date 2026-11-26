@@ -1,0 +1,523 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ImpactLens Flow 2: Text to ML, then double-check</title>
+<style>
+:root{--bg:#0f1720;--fg:#f4f6f8;--muted:#9aa7b4;--accent:#3b82f6;--ok:#22c55e;--warn:#f59e0b;--ai:#7c3aed;--card:rgba(10,16,24,.9);--panel:#f8fafc;--ink:#0f172a;--line:#cbd5e1}
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]){--bg:#eef2f6;--fg:#111827;--muted:#4b5563;--accent:#1d4ed8;--card:rgba(255,255,255,.96)}}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+body{display:flex;flex-direction:column;overflow:hidden}
+header{display:flex;align-items:center;gap:10px;padding:10px 16px 0;flex-wrap:wrap}
+header h1{font-size:15px;margin:0;font-weight:700;flex:1;min-width:180px}
+.lv{display:flex;border:1px solid rgba(127,127,127,.4);border-radius:999px;overflow:hidden}
+.lv button:focus-visible{outline-offset:-3px}.lv button{border:0;border-radius:0;padding:6px 12px;min-height:34px;font-size:13px;background:transparent}
+.lv button[aria-pressed=true]{background:var(--accent);color:#fff;font-weight:700}
+#clock{font-size:13px;color:var(--muted);min-width:76px;text-align:right}
+.bar{height:4px;background:rgba(127,127,127,.25);border-radius:4px;margin:8px 16px 0;overflow:hidden}
+.bar>i{display:block;height:100%;width:0;background:var(--accent)}
+#stage{flex:1;min-height:0;display:flex;justify-content:center;padding:10px 16px 6px}
+.frame{width:min(100%,1200px);height:100%;display:flex;flex-direction:column;gap:8px;min-height:0}
+/* maps */
+.maps{flex:none;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:8px 10px}
+.macro{display:flex;align-items:center;gap:2px}
+.grp{flex:1;min-width:0;border-radius:10px;padding:4px 6px 6px;border:1px solid var(--line)}
+.grp.u1{background:#eff6ff;border-color:#bfdbfe}.grp.u2{background:#ecfdf5;border-color:#a7f3d0}
+.gl{font-size:10.5px;font-weight:800;letter-spacing:.06em;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.u1 .gl{color:#1d4ed8}.u2 .gl{color:#047857}
+.sts{display:flex;align-items:center;gap:0}
+.st{flex:1 1 0;min-width:0;display:flex;align-items:center;gap:5px;padding:5px 7px;border-radius:9px;background:#fff;border:2px solid var(--line);font-size:12px;line-height:1.15;color:#64748b;transition:background .35s,border-color .35s,color .35s}
+.st i{flex:none;width:19px;height:19px;border-radius:50%;background:#e2e8f0;color:#334155;font:700 11px/19px system-ui;text-align:center;font-style:normal}
+.st b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.st.done{border-color:#86efac;color:#14532d;background:#f0fdf4}.st.done i{background:var(--ok);color:#fff;font-size:0}.st.done i:before{content:"\2713";font-size:12px}
+.st.cur{border-color:#2563eb;color:#1e3a8a;background:#dbeafe;font-weight:700;animation:flash 1s ease-in-out infinite}
+.st.cur i{background:#2563eb;color:#fff;animation:blinkb 1s ease-in-out infinite}
+@keyframes flash{0%,100%{box-shadow:0 0 0 0 rgba(37,99,235,.65);background:#dbeafe}50%{box-shadow:0 0 0 7px rgba(37,99,235,0);background:#eff6ff}}
+@keyframes blinkb{50%{transform:scale(1.25)}}
+.ar{flex:none;position:relative;width:16px;height:2px;background:#cbd5e1;margin:0 1px;transition:background .3s}
+.ar:after{content:"";position:absolute;right:-1px;top:-4px;border:5px solid transparent;border-left:7px solid #cbd5e1;border-right:0;transition:border-color .3s}
+.ar.done{background:var(--ok)}.ar.done:after{border-left-color:var(--ok)}
+.ar.live{background:repeating-linear-gradient(90deg,#2563eb 0 4px,transparent 4px 8px);background-size:8px 2px;animation:dash .5s linear infinite}
+.ar.live:after{border-left-color:#2563eb}
+@keyframes dash{to{background-position:8px 0}}
+.ar.big{width:22px}
+.hand{flex:none;width:86px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:10px;text-align:center;font-weight:700;color:#92400e;background:#fffbeb;border:2px dashed #f59e0b;border-radius:14px;line-height:1.15;padding:3px;align-self:center;transition:all .3s}
+.hand big{font-size:20px;line-height:1}
+.hand.on{background:#fde68a;border-style:solid;animation:flashw 1s ease-in-out infinite}
+@keyframes flashw{0%,100%{box-shadow:0 0 0 0 rgba(245,158,11,.7)}50%{box-shadow:0 0 0 8px rgba(245,158,11,0)}}
+.micro{display:flex;align-items:center;gap:0;margin-top:6px;overflow-x:auto;scrollbar-width:none;padding:3px 2px}
+.micro::-webkit-scrollbar{display:none}
+.mt{flex:none;font-size:10.5px;font-weight:800;letter-spacing:.06em;color:#64748b;margin-right:8px}
+.mc{flex:none;display:flex;align-items:center;gap:5px;font-size:12px;padding:3px 10px;border-radius:999px;border:2px solid var(--line);background:#fff;color:#64748b;transition:all .3s;white-space:nowrap}
+.mc.done{border-color:#86efac;background:#f0fdf4;color:#14532d}.mc.done:before{content:"\2713";color:var(--ok);font-weight:800}
+.mc.cur{border-color:#2563eb;color:#1e3a8a;font-weight:700;background:#dbeafe;animation:flash 1s ease-in-out infinite}
+.mc.cur:before{content:"";width:7px;height:7px;border-radius:50%;background:#2563eb;animation:blinkb 1s infinite}
+.micro .ar{width:12px}
+/* view */
+.view{position:relative;flex:1;min-height:0;border-radius:12px;overflow:hidden;background:#0b1118;box-shadow:0 10px 40px rgba(0,0,0,.3)}
+.scene{position:absolute;inset:0;opacity:0;pointer-events:none;transition:opacity .5s}
+.scene.on{opacity:1}
+.shot{display:flex;gap:10px;padding:10px}
+.imgcol{position:relative;flex:1;min-width:0;border-radius:8px;background:#e5e7eb;overflow:hidden}
+.fit{position:absolute;left:0;top:0;transform-origin:0 0;transition:transform 1.4s cubic-bezier(.4,0,.2,1)}
+.fit img{display:block;width:100%;height:100%}
+.cb{position:absolute;border:3px solid #f97316;border-radius:6px;box-shadow:0 0 0 2px rgba(255,255,255,.85),0 0 0 0 rgba(239,68,68,0);opacity:0;transform:scale(1.06);transition:all .4s}
+.cb.on{opacity:1;transform:none}.cb.cur{border-color:#ef4444;animation:cbp 1.4s infinite}
+@keyframes cbp{50%{box-shadow:0 0 0 2px rgba(255,255,255,.9),0 0 14px 4px rgba(239,68,68,.55)}}
+.cb u{position:absolute;left:-12px;top:-12px;width:24px;height:24px;border-radius:50%;background:#ef4444;color:#fff;font:700 13px/24px system-ui;text-align:center;text-decoration:none;transform:scale(var(--inv,1));transform-origin:50% 50%}
+.legend{flex:none;width:270px;display:flex;flex-direction:column;gap:8px;overflow:hidden}
+.lg{background:var(--card);border-radius:10px;padding:8px 10px;color:var(--fg);opacity:0;transform:translateX(10px);transition:all .4s;display:flex;gap:8px;align-items:flex-start;border-left:4px solid #ef4444}
+.lg.on{opacity:1;transform:none}
+.lg u{flex:none;width:22px;height:22px;border-radius:50%;background:#ef4444;color:#fff;font:700 12px/22px system-ui;text-align:center;text-decoration:none}
+.lg b{display:block;font-size:13.5px;margin-bottom:1px}.lg span{font-size:12.5px;line-height:1.35;color:var(--muted)}
+.svgs{background:var(--panel);display:flex;align-items:center;justify-content:center;padding:6px}
+.svgs svg{width:100%;height:100%;max-height:100%}
+.svgs text{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+.title{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;background:linear-gradient(135deg,#0f172a,#1e3a8a 60%,#4c1d95);color:#fff}
+.title h2{font-size:clamp(24px,4.4vw,44px);margin:6px 0 10px;line-height:1.15}
+.title p{max-width:720px;margin:0;line-height:1.55;font-size:clamp(14px,2vw,18px);color:#dbeafe}
+.title .tag{font-size:12px;letter-spacing:.14em;font-weight:800;color:#93c5fd}
+.title .pills{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:16px}
+.title .pills span{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.3);padding:6px 12px;border-radius:999px;font-size:13px}
+.chip{position:absolute;top:10px;left:10px;z-index:5;background:var(--accent);color:#fff;font-weight:700;font-size:12.5px;padding:5px 10px;border-radius:999px;opacity:0;transform:translateY(-6px);transition:all .4s}
+.chip.on{opacity:1;transform:none}
+.caption{flex:none;background:var(--card);border-radius:12px;padding:10px 14px;box-shadow:0 6px 24px rgba(0,0,0,.25);min-height:62px}
+.caption b{display:block;font-size:16px;margin-bottom:2px}.caption span{font-size:14px;line-height:1.45;color:var(--muted)}
+.controls{display:flex;gap:8px;align-items:center;justify-content:center;padding:4px 16px 12px;flex-wrap:wrap}
+button{font:inherit;border:1px solid rgba(127,127,127,.35);background:transparent;color:var(--fg);padding:8px 14px;border-radius:8px;cursor:pointer;min-height:40px}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+button:focus-visible{outline:3px solid var(--ok);outline-offset:2px}
+#count{color:var(--muted);font-size:13px;min-width:70px;text-align:center}
+/* svg animation helpers */
+.pop{animation:pop .55s ease both;transform-box:fill-box;transform-origin:center}
+@keyframes pop{from{opacity:0;transform:translateY(8px) scale(.95)}to{opacity:1;transform:none}}
+.fade{animation:fade .6s ease both}@keyframes fade{from{opacity:0}to{opacity:1}}
+.draw{stroke-dasharray:1;stroke-dashoffset:1;animation:draw .8s ease both}
+@keyframes draw{from{stroke-dashoffset:1;opacity:0}12%{opacity:1}to{stroke-dashoffset:0;opacity:1}}
+.pk{animation:mv var(--t,1s) linear var(--d,0s) both}
+@keyframes mv{0%{opacity:0;transform:translate(0,0)}8%{opacity:1}92%{opacity:1}100%{opacity:0;transform:translate(var(--dx),var(--dy))}}
+.lit{animation:lit 1s ease var(--d,0s) both;transform-box:fill-box;transform-origin:center}
+@keyframes lit{0%{filter:none}40%{filter:drop-shadow(0 0 7px #16a34a) brightness(1.05)}100%{filter:none}}
+.grow{transform-box:fill-box;transform-origin:left center;animation:grow 1.4s ease var(--d,0s) both}
+@keyframes grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+.blink{animation:blink 1.1s infinite}@keyframes blink{50%{opacity:.35}}
+@media (max-width:760px){
+  .legend{display:none}
+  .macro .gl{display:none}.st b{display:none}.st{justify-content:center;padding:4px}.hand{width:40px}.hand small{display:none}.ar{width:8px}.ar.big{width:10px}
+  .shot{padding:6px}
+  .svgs{overflow-x:auto;justify-content:flex-start}.svgs svg{min-width:720px;width:720px;height:auto;max-height:none}
+  #clock{display:none}
+  .caption b{font-size:15px}.caption span{font-size:13px}
+}
+@media (prefers-reduced-motion: reduce){
+  .st.cur,.mc.cur,.hand.on,.ar.live,.st.cur i,.mc.cur:before{animation:none!important}.fit{transition:none}.pop,.fade,.draw,.pk,.lit,.grow,.blink,.cb.cur,.mc.cur:before{animation:none!important}
+  .draw{stroke-dashoffset:0}.pk{opacity:0}
+}
+
+.grp.u3{background:#fff7ed;border-color:#fed7aa}.u3 .gl{color:#c2410c}
+.grp.u4{background:#f5f3ff;border-color:#ddd6fe}.u4 .gl{color:#6d28d9}
+.or{flex:none;font-size:10px;font-weight:800;color:#64748b;padding:0 6px;letter-spacing:.06em}
+.home{font-size:12.5px;color:var(--muted);text-decoration:none;border:1px solid rgba(127,127,127,.4);padding:6px 10px;border-radius:999px;min-height:34px;display:inline-flex;align-items:center}
+.home:hover{color:var(--fg)}
+a.btnlink{font:inherit;border:1px solid var(--accent);background:var(--accent);color:#fff;padding:8px 14px;border-radius:8px;min-height:40px;display:inline-flex;align-items:center;text-decoration:none;font-weight:700}
+a.btnlink[hidden]{display:none}
+a:focus-visible{outline:3px solid var(--ok);outline-offset:2px}
+.cost{font-weight:800}
+.blur{filter:blur(0)}
+
+</style>
+</head>
+<body>
+<header>
+  <a class="home" href="index.html">&#9664; All walkthroughs</a>
+  <h1>Flow 2 · From a plain question to a strategy, then double-checked</h1>
+  <div class="lv" role="group" aria-label="Walkthrough length">
+    <button id="lv1" aria-pressed="true">Level 1 · 1 min</button>
+    <button id="lv2" aria-pressed="false">Level 2 · 3 min</button>
+  </div>
+  <span id="clock">0:00</span>
+</header>
+<div class="bar" aria-hidden="true"><i id="prog"></i></div>
+<div id="stage"><div class="frame">
+  <div class="maps" id="maps" aria-label="Where we are in the flow">
+    <div class="macro" id="macro"></div>
+    <div class="micro" id="micro"></div>
+  </div>
+  <div class="view" id="view" role="region" aria-label="Walkthrough" aria-live="off">
+    <div class="chip" id="chip"></div>
+  </div>
+  <div class="caption" id="caption" aria-live="polite"><b></b><span></span></div>
+</div></div>
+<div class="controls">
+  <button id="prev" aria-label="Previous scene">&#9664; Back</button>
+  <button id="play" class="primary" aria-label="Pause">Pause</button>
+  <button id="next" aria-label="Next scene">Next &#9654;</button>
+  <span id="count"></span>
+  <a id="nextflow" class="btnlink" href="index.html" hidden>Next</a>
+</div>
+<script>
+(function(){
+"use strict";
+var IMGS={"f1-gate-pro": {"f": "img/f1-gate-pro.jpg", "w": 910, "h": 430, "ox": 330, "oy": 150}, "f1-projects-pro": {"f": "img/f1-projects-pro.jpg", "w": 810, "h": 330, "ox": 380, "oy": 0}, "f1-ask": {"f": "img/f1-ask.jpg", "w": 1166, "h": 888, "ox": 0, "oy": 0}, "f1-plan": {"f": "img/f1-plan.jpg", "w": 1166, "h": 888, "ox": 0, "oy": 0}, "f1-results": {"f": "img/f1-results.jpg", "w": 1166, "h": 888, "ox": 0, "oy": 0}, "f1-dossier": {"f": "img/f1-dossier.jpg", "w": 1060, "h": 807, "ox": 0, "oy": 0}, "f1-saved": {"f": "img/f1-saved.jpg", "w": 1060, "h": 807, "ox": 0, "oy": 0}, "f1-login": {"f": "img/f1-login.jpg", "w": 540, "h": 400, "ox": 260, "oy": 200}, "f1-gate-basic": {"f": "img/f1-gate-basic.jpg", "w": 600, "h": 470, "ox": 230, "oy": 170}, "f1-projects-basic": {"f": "img/f1-projects-basic.jpg", "w": 980, "h": 370, "ox": 40, "oy": 0}, "f1-favs": {"f": "img/f1-favs.jpg", "w": 1166, "h": 888, "ox": 0, "oy": 0}, "f1-buttons": {"f": "img/f1-buttons.jpg", "w": 1166, "h": 888, "ox": 0, "oy": 0}, "f1-compare": {"f": "img/f1-compare.jpg", "w": 1166, "h": 888, "ox": 0, "oy": 0}, "f1-explainer": {"f": "img/f1-explainer.jpg", "w": 1166, "h": 888, "ox": 0, "oy": 0}, "f1-volunteer": {"f": "img/f1-volunteer.jpg", "w": 1166, "h": 888, "ox": 0, "oy": 0}, "f3-login": {"f": "img/f3-login.jpg", "w": 570, "h": 430, "ox": 300, "oy": 230}, "f3-gate": {"f": "img/f3-gate.jpg", "w": 570, "h": 450, "ox": 300, "oy": 220}, "f3-projects-basic": {"f": "img/f3-projects-basic.jpg", "w": 950, "h": 370, "ox": 110, "oy": 0}, "f3-basic-ws": {"f": "img/f3-basic-ws.jpg", "w": 1166, "h": 888, "ox": 0, "oy": 0}, "f3-basic-favs": {"f": "img/f3-basic-favs.jpg", "w": 1166, "h": 888, "ox": 0, "oy": 0}, "f3-pro-pass": {"f": "img/f3-pro-pass.jpg", "w": 570, "h": 430, "ox": 300, "oy": 230}, "f3-pro-ws": {"f": "img/f3-pro-ws.jpg", "w": 1166, "h": 888, "ox": 0, "oy": 0}, "f3-agents": {"f": "img/f3-agents.jpg", "w": 920, "h": 616, "ox": 320, "oy": 110}, "f4-newproj": {"f": "img/f4-newproj.jpg", "w": 960, "h": 370, "ox": 100, "oy": 0}, "f4-before": {"f": "img/f4-before.jpg", "w": 770, "h": 385, "ox": 395, "oy": 115}, "f4-files": {"f": "img/f4-files.jpg", "w": 1166, "h": 888, "ox": 0, "oy": 0}, "f4-down": {"f": "img/f4-down.jpg", "w": 1166, "h": 888, "ox": 0, "oy": 0}, "f4-fetched": {"f": "img/f4-fetched.jpg", "w": 1166, "h": 888, "ox": 0, "oy": 0}, "f4-ready": {"f": "img/f4-ready.jpg", "w": 1166, "h": 888, "ox": 0, "oy": 0}, "f4-ask": {"f": "img/f4-ask.jpg", "w": 1166, "h": 888, "ox": 0, "oy": 0}, "f2-guide": {"f": "img/f2-guide.jpg", "w": 1568, "h": 726, "ox": 0, "oy": 0}, "f2-planner": {"f": "img/f2-planner.jpg", "w": 1568, "h": 726, "ox": 0, "oy": 0}, "f2-plan": {"f": "img/f2-plan.jpg", "w": 1166, "h": 888, "ox": 0, "oy": 0}, "f2-step1": {"f": "img/f2-step1.jpg", "w": 1166, "h": 888, "ox": 0, "oy": 0}, "f2-steer": {"f": "img/f2-steer.jpg", "w": 1166, "h": 888, "ox": 0, "oy": 0}, "f2-step2": {"f": "img/f2-step2.jpg", "w": 1166, "h": 888, "ox": 0, "oy": 0}, "f2-honest": {"f": "img/f2-honest.jpg", "w": 1166, "h": 888, "ox": 0, "oy": 0}, "f2-baseline": {"f": "img/f2-baseline.jpg", "w": 1166, "h": 888, "ox": 0, "oy": 0}, "f2-step4": {"f": "img/f2-step4.jpg", "w": 1166, "h": 888, "ox": 0, "oy": 0}, "f2-similar": {"f": "img/f2-similar.jpg", "w": 1166, "h": 888, "ox": 0, "oy": 0}, "f2-mrq": {"f": "img/f2-mrq.jpg", "w": 1166, "h": 888, "ox": 0, "oy": 0}, "f2-cons-q": {"f": "img/f2-cons-q.jpg", "w": 1060, "h": 807, "ox": 0, "oy": 0}, "f2-cons-rewrite": {"f": "img/f2-cons-rewrite.jpg", "w": 1060, "h": 807, "ox": 0, "oy": 0}, "f2-cons-5": {"f": "img/f2-cons-5.jpg", "w": 1060, "h": 807, "ox": 0, "oy": 0}, "f2-cons-run": {"f": "img/f2-cons-run.jpg", "w": 1060, "h": 807, "ox": 0, "oy": 0}, "f2-verdict": {"f": "img/f2-verdict.jpg", "w": 1166, "h": 888, "ox": 0, "oy": 0}, "f2-run5": {"f": "img/f2-run5.jpg", "w": 1060, "h": 807, "ox": 0, "oy": 0}, "f2-verdict-live": {"f": "img/f2-verdict-live.jpg", "w": 1166, "h": 888, "ox": 0, "oy": 0}, "f2-compare": {"f": "img/f2-compare.jpg", "w": 1166, "h": 888, "ox": 0, "oy": 0}, "f2-dossier": {"f": "img/f2-dossier.jpg", "w": 1166, "h": 888, "ox": 0, "oy": 0}, "f2-persona": {"f": "img/f2-persona.jpg", "w": 1166, "h": 888, "ox": 0, "oy": 0}, "f2-teams": {"f": "img/f2-teams.jpg", "w": 1166, "h": 888, "ox": 0, "oy": 0}, "f2-ask-mrq": {"f": "img/f2-ask-mrq.jpg", "w": 1166, "h": 888, "ox": 0, "oy": 0}, "f2-ask-donor": {"f": "img/f2-ask-donor.jpg", "w": 1166, "h": 888, "ox": 0, "oy": 0}, "f2-fav-saved": {"f": "img/f2-fav-saved.jpg", "w": 1166, "h": 888, "ox": 0, "oy": 0}, "f2-fav-explain": {"f": "img/f2-fav-explain.jpg", "w": 1166, "h": 888, "ox": 0, "oy": 0}};
+/* ---------- svg helpers ---------- */
+var K=1; // time scale for the current svg scene
+function D(x){return ' style="animation-delay:'+(x*K).toFixed(2)+'s"';}
+function T(x){return (x*K).toFixed(2)+'s';}
+function rect(x,y,w,h,f,s,rx,d,extra){return '<rect class="pop"'+D(d)+' x="'+x+'" y="'+y+'" width="'+w+'" height="'+h+'" rx="'+(rx||10)+'" fill="'+f+'" stroke="'+(s||'none')+'" stroke-width="2"'+(extra||'')+'/>';}
+function tx(x,y,s,sz,fill,wt,anchor,d){return '<text class="fade"'+D(d||0)+' x="'+x+'" y="'+y+'" font-size="'+(sz||15)+'" fill="'+(fill||'#0f172a')+'" font-weight="'+(wt||500)+'" text-anchor="'+(anchor||'start')+'">'+s+'</text>';}
+function box(x,y,w,h,title,sub,f,s,d,tc){
+  return '<g class="pop"'+D(d)+'><rect x="'+x+'" y="'+y+'" width="'+w+'" height="'+h+'" rx="12" fill="'+f+'" stroke="'+s+'" stroke-width="2"/>'+
+   '<text x="'+(x+w/2)+'" y="'+(y+(sub?h/2-3:h/2+5))+'" text-anchor="middle" font-size="15" font-weight="700" fill="'+(tc||'#0f172a')+'">'+title+'</text>'+
+   (sub?'<text x="'+(x+w/2)+'" y="'+(y+h/2+15)+'" text-anchor="middle" font-size="11.5" fill="#475569">'+sub+'</text>':'')+'</g>';
+}
+function path(d,col,delay,dash){return '<path class="draw"'+D(delay)+' pathLength="1" d="'+d+'" fill="none" stroke="'+(col||'#475569')+'" stroke-width="2.5" marker-end="url(#ah)"/>';}
+function packet(x,y,dx,dy,t,delay,col){return '<circle class="pk" style="--dx:'+dx+'px;--dy:'+dy+'px;--t:'+T(t)+';--d:'+T(delay)+'" cx="'+x+'" cy="'+y+'" r="7" fill="'+(col||'#f59e0b')+'" stroke="#fff" stroke-width="2"/>';}
+function svg(w,h,body){return '<svg viewBox="0 0 '+w+' '+h+'" xmlns="http://www.w3.org/2000/svg" role="img"><defs><marker id="ah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#475569"/></marker></defs>'+body+'</svg>';}
+function wrapTxt(s,n){var w=s.split(' '),l='',o=[];w.forEach(function(x){if((l+' '+x).replace(/^ /,'').length>n){o.push(l);l=x;}else l=(l?l+' ':'')+x;});if(l)o.push(l);return o;}
+function para(x,y,s,sz,fill,wt,n,d,lh,anchor){var ls=wrapTxt(s,n),o='';ls.forEach(function(l,i){o+=tx(x,y+i*(lh||sz*1.38),l,sz,fill,wt,anchor||'start',(d||0)+i*0.1);});return o;}
+function pill(x,y,w,h,label,f,s,tc,d,sz){return rect(x,y,w,h,f,s,h/2,d)+tx(x+w/2,y+h/2+(sz||13)*0.36,label,sz||13,tc,700,'middle',d+.15);}
+function lock(x,y,c,d){return '<g class="pop"'+D(d)+'><rect x="'+x+'" y="'+(y+8)+'" width="18" height="14" rx="3" fill="'+c+'"/><path d="M'+(x+3)+' '+(y+8)+' v-4 a6 6 0 0 1 12 0 v4" fill="none" stroke="'+c+'" stroke-width="2.5"/></g>';}
+function laptop(x,y,s,d,col){col=col||'#1e3a8a';return '<g transform="translate('+x+' '+y+') scale('+s+')"><g class="pop"'+D(d)+'><rect x="0" y="0" width="140" height="90" rx="8" fill="#e0e7ff" stroke="'+col+'" stroke-width="4"/><rect x="10" y="10" width="120" height="70" rx="3" fill="#fff"/><path d="M-14 98 h168 l-10 12 h-148z" fill="'+col+'"/></g></g>';}
+function cloud(x,y,s,d,f,st){return '<g transform="translate('+x+' '+y+') scale('+s+')"><g class="pop"'+D(d)+'><path d="M30 70 a22 22 0 0 1 4-43 a30 30 0 0 1 57-6 a26 26 0 0 1 9 49z" fill="'+(f||'#f1f5f9')+'" stroke="'+(st||'#94a3b8')+'" stroke-width="4"/></g></g>';}
+function cross(x,y,c,d){return '<g class="pop"'+D(d)+'><path d="M'+(x-14)+' '+(y-14)+' l28 28 M'+(x+14)+' '+(y-14)+' l-28 28" stroke="'+c+'" stroke-width="6" stroke-linecap="round"/></g>';}
+
+function person(x,y,c,d,s){s=s||1;return '<g transform="translate('+x+' '+y+') scale('+s+')"><g class="pop"'+D(d)+'><circle cx="0" cy="-16" r="9" fill="'+c+'"/><path d="M-15 14 a15 15 0 0 1 30 0z" fill="'+c+'"/></g></g>';}
+
+/* ML modelling with no server bill */
+function svgCost(){
+  var b='',i,usual=['Rent cloud servers or GPUs','Pay by the hour, even when idle','Hire or retain a data scientist'],ours=['Models train in the browser tab','The staff laptop does the maths','Staff steer in plain English'];
+  b+=tx(480,38,'ML modelling with no server bill',28,'#0f172a',800,'middle',0);
+  b+=tx(480,62,'Real models, trained on the staff laptop, by people who never studied ML.',14.5,'#475569',500,'middle',.3);
+  b+=rect(30,84,420,206,'#fef2f2','#fca5a5',14,.5);
+  b+=tx(52,114,'THE USUAL WAY',13,'#b91c1c',800,'start',.7);
+  for(i=0;i<3;i++)b+=tx(52,148+i*30,'&#215; '+usual[i],15,'#7f1d1d',600,'start',1+i*.35);
+  b+=cloud(318,104,.95,.9,'#fee2e2','#f87171');
+  b+=tx(52,266,'$$$ every month',26,'#b91c1c',800,'start',2.2);
+  b+=rect(510,84,420,206,'#ecfdf5','#34d399',14,1.2);
+  b+=tx(532,114,'IMPACTLENS',13,'#047857',800,'start',1.4);
+  for(i=0;i<3;i++)b+=tx(532,148+i*30,'&#10003; '+ours[i],15,'#064e3b',600,'start',1.8+i*.35);
+  b+=laptop(812,196,.62,2,'#047857');
+  b+=tx(532,266,'$0 server compute',26,'#047857',800,'start',3);
+  b+=path('M452 187 L506 187','#16a34a',1.8);
+  var pl=[['COST','No server or GPU to rent, so more NGOs can afford it','#fef3c7','#f59e0b','#92400e'],['ACCESS','Local staff with no ML knowledge get results, because Miss.DS plans and runs the steps','#dbeafe','#3b82f6','#1e3a8a'],['TRUST','Every step is explained in plain words, then double-checked five ways','#ede9fe','#8b5cf6','#4c1d95']];
+  for(i=0;i<3;i++){
+    var x=30+i*305;
+    b+=rect(x,308,290,78,pl[i][2],pl[i][3],12,3.6+i*.4);
+    b+=tx(x+14,330,pl[i][0],13,pl[i][4],800,'start',3.8+i*.4);
+    b+=para(x+14,349,pl[i][1],12,'#334155',500,46,3.9+i*.4,15);
+  }
+  b+=tx(480,408,'Planning uses AI tokens. The number-crunching and model training (Danfo.js, TensorFlow.js) run on your own device.',11.5,'#64748b',600,'middle',5.4);
+  return svg(960,420,b);
+}
+
+
+var STAGES_=[
+ {n:"Ask",m:["Pick Predict & Classify","Type the question","Plan 5 Steps"]},
+ {n:"Plan",m:["ML engineer persona","Five experiments","The goal in plain words"]},
+ {n:"Run & steer",m:["Step 1: who is in scope","You steer","Plan adapts","Honest checks","Train the models"]},
+ {n:"Conclude",m:["Results and thresholds","Master dossier","Copy the conclusion"]},
+ {n:"Double-check",m:["Plain-English rewrite","5 independent methods","Run all 5"]},
+ {n:"Verdict",m:["Agreement score","Consensus answer"]}
+];
+var MACRO_=[
+ {g:'u1',label:'DAY 1 · MISS.DS BUILDS THE ANSWER',from:0,to:3},
+ {link:'arrow'},
+ {g:'u3',label:'DAY 2 · MR.QUALITY CHECKS IT',from:4,to:5}
+];
+
+/* the conclusion */
+function svgConclusion(){
+  var b='';
+  b+=tx(480,32,'Five steps become one conclusion a programme leader can act on',19,'#0f172a',800,'middle',0);
+  b+=rect(40,56,880,208,'#fff','#93c5fd',14,.3);
+  b+=tx(62,86,'CONCLUSION',13,'#1d4ed8',800,'start',.5);
+  b+=para(62,114,'Full-time choice is mostly predicted by (1) Full-time status at Pre and (2) how strongly the person already preferred NGO or social-entrepreneurship careers over private or government jobs.',17,'#0f172a',600,96,.8,25);
+  b+=tx(62,206,'TAKEAWAY',13,'#047857',800,'start',2);
+  b+=para(62,230,'Most people who say Full-time at Post already said it at Pre. The workshop mostly meets people where they already are.',16,'#064e3b',600,104,2.2,23);
+  var ch=[['Association, not causation','#fef3c7','#f59e0b','#92400e'],['Effective N reported at every step','#dbeafe','#3b82f6','#1e3a8a'],['Caveats stated up front','#ede9fe','#8b5cf6','#4c1d95']];
+  for(var i=0;i<3;i++)b+=pill(40+i*300,292,280,38,ch[i][0],ch[i][1],ch[i][2],ch[i][3],3.4+i*.4,13.5);
+  b+=tx(480,362,'Next: hand this conclusion to Mr.Quality and see whether it holds up.',15,'#1e3a8a',800,'middle',5);
+  return svg(960,380,b);
+}
+
+/* finale */
+function svgFinale(){
+  var b='',i,l=['Plans five experiments from a plain question','Fixes its own plan when a step fails','Trains models on your laptop'],r=['Five independent teams, five methods','Same data, different maths','One consensus verdict'];
+  b+=tx(480,34,'A data science team, inside a browser tab',24,'#0f172a',800,'middle',0);
+  b+=rect(30,60,440,196,'#eff6ff','#93c5fd',14,.4);
+  b+=tx(52,90,'DAY 1 · MISS.DS',13,'#1d4ed8',800,'start',.6);
+  b+=tx(52,116,'Builds the answer',18,'#0f172a',800,'start',.8);
+  for(i=0;i<3;i++)b+=tx(52,150+i*30,'&#10003; '+l[i],14.5,'#1e3a8a',600,'start',1.2+i*.35);
+  b+=rect(490,60,440,196,'#fff7ed','#fdba74',14,.6);
+  b+=tx(512,90,'DAY 2 · MR.QUALITY',13,'#c2410c',800,'start',.8);
+  b+=tx(512,116,'Checks the answer',18,'#0f172a',800,'start',1);
+  for(i=0;i<3;i++)b+=tx(512,150+i*30,'&#10003; '+r[i],14.5,'#7c2d12',600,'start',1.6+i*.35);
+  b+=path('M472 158 L488 158','#475569',1.4);
+  var p=[['COST','$0 server compute','#fef3c7','#f59e0b','#92400e'],['ACCESS','No ML knowledge needed','#dbeafe','#3b82f6','#1e3a8a'],['TRUST','Checked five ways','#ede9fe','#8b5cf6','#4c1d95']];
+  for(i=0;i<3;i++){var x=30+i*305;b+=rect(x,278,290,80,p[i][2],p[i][3],12,2.6+i*.4);b+=tx(x+16,306,p[i][0],13,p[i][4],800,'start',2.8+i*.4);b+=tx(x+16,338,p[i][1],19,'#0f172a',800,'start',3+i*.4);}
+  b+=tx(480,388,'Strategic answers for NGOs, without hiring a data science team.',15,'#1e3a8a',800,'middle',4.6);
+  return svg(960,404,b);
+}
+
+var SC=[
+ {k:'title',st:0,mi:0,d:[4,8],t:'Text to strategy, then double-checked',x:'Ask one plain-English question. Miss.DS plans five experiments and trains real models in your browser at no server cost. Then Mr.Quality checks the answer five independent ways.'},
+ {k:'shot',img:'f2-guide',st:0,mi:0,d:[6,11],chip:'Day 1 · Ask',t:'Pick Predict & Classify',x:'The Text-to-ML style trains a live model. A short guide says what it brings and offers starter ideas.',
+  cs:[{b:[660,310,236,52],n:'Predict & Classify (Text-to-ML)',x:'Trains a live model to spot what comes next.',m:0},
+      {b:[430,418,696,34],n:'What it brings you',x:'The strongest clues, a real TensorFlow.js model, and which factors mattered most.',m:0},
+      {b:[939,473,187,22],n:'Ask Genie',x:'Not sure what to ask? Genie proposes questions from your columns.',m:1},
+      {b:[418,644,720,55],n:'The question',x:'What predicts choosing Fulltime as a career, Batches 11 to 17?',m:1},
+      {b:[418,253,420,24],n:'Audience',x:'Explanations are written for the reader you choose.',m:1}]},
+ {k:'shot',img:'f2-planner',st:1,mi:0,d:[0,11],chip:'Day 1 · Plan',t:'A Principal ML Engineer persona plans the work',x:'Advanced users can read and edit the planner instructions. They split any Text-to-ML question into exactly five experiments.',
+  cs:[{b:[430,342,708,56],n:'Planner instructions',x:'Scope the data, engineer features, split and benchmark, train, evaluate.',m:0},
+      {b:[430,424,708,24],n:'Optional method hints',x:'Add your own, for example an 80/20 split or AUC.',m:0},
+      {b:[418,562,720,64],n:'The goal in plain words',x:'Associations only, never causation. Effective N at every step.',m:2},
+      {b:[418,648,720,78],n:'Step 1 starts',x:'Reading your data and checking the numbers.',m:1}]},
+ {k:'shot',img:'f2-plan',st:1,mi:1,d:[6,13],chip:'Day 1 · Plan',t:'Five experiments, in order',x:'Who is in scope, which signals matter, what a fair test looks like, how models perform, and what to do about it.',
+  cs:[{b:[135,205,880,84],n:'The goal',x:'Written first, with the honest limits.',m:2},
+      {b:[135,316,880,134],n:'Step 1: who is in scope',x:'How many people, what counts as Fulltime, what data is lost.',m:1},
+      {b:[135,463,880,184],n:'Steps 2 and 3',x:'Candidate drivers, then a fair test and the bar to beat.',m:1},
+      {b:[135,659,880,86],n:'Step 4: train the models',x:'Logistic regression and a small TensorFlow.js network, both in your browser.',m:1},
+      {b:[135,757,880,86],n:'Step 5: results and thresholds',x:'Risk flags and cut-offs a programme can act on.',m:1}]},
+ {k:'svg',f:svgCost,ref:16,st:2,mi:4,d:[8,16],chip:'Why it is affordable',t:'ML modelling with no server bill',x:'The models are trained inside the browser tab, on the laptop in front of you. There are no servers or GPUs to rent, and no data scientist needed to run it.',mis:[[0,4],[3,4]]},
+ {k:'shot',img:'f2-step1',st:2,mi:0,d:[0,12],chip:'Day 1 · Step 1',t:'Step 1 answers in plain words',x:'Reach, drop-off by workshop level, data quality: all explained for a programme leader, with the code one click away.',
+  cs:[{b:[99,130,570,20],n:'Step 1: who is in scope',x:'Marked Done when its code has run and passed checks.',m:0},
+      {b:[99,235,953,392],n:'What we found',x:'1,491 participants, how many have usable pairs, and what was lost.',m:0},
+      {b:[877,636,176,16],n:'Show Technical Code & Method',x:'The exact code is one click away.',m:0},
+      {b:[986,672,68,16],n:'Show live log',x:'Watch the computation as it ran.',m:0}]},
+ {k:'shot',img:'f2-steer',st:2,mi:1,d:[6,14],chip:'Day 1 · You steer',t:'You steer, in everyday words',x:'After each step Miss.DS offers next moves with an analogy, what happens next, and when each is best. One is recommended.',
+  cs:[{b:[99,146,953,70],n:'Pick what to check next',x:'None of the options is a wrong turn.',m:1},
+      {b:[99,224,953,176],n:'Recommended, and selected',x:'Think of it like guessing a race winner from how runners trained.',m:1},
+      {b:[99,410,953,160],n:'Who changes their mind?',x:'An alternative: focus on people who moved during the workshop.',m:1},
+      {b:[99,729,953,150],n:'Tidy the kitchen first',x:'Or pause and clean record mix-ups before going on.',m:1},
+      {b:[778,165,150,26],n:'Refresh Plain Examples',x:'Ask for fresh analogies.',m:1}]},
+ {k:'shot',img:'f2-step2',st:2,mi:2,d:[0,13],chip:'Day 1 · Plan adapts',t:'The next step is rewritten around your choice',x:'"Adjusted from your choice" and "Why this step changed" say, in plain words, what the agents learned and why the step now looks different.',
+  cs:[{b:[99,203,365,16],n:'Next choice picked',x:'Your steering decision, recorded.',m:2},
+      {b:[99,269,820,18],n:'Step 2, rewritten',x:'Now a Pre-only driver screen at the first workshop level.',m:2},
+      {b:[99,294,130,16],n:'Adjusted from your choice',x:'A clear label on every changed step.',m:2},
+      {b:[99,392,862,58],n:'Why this step changed',x:'258 Post-only people have no Pre features, so Step 2 keeps one leak-free row per person.',m:2}]},
+ {k:'shot',img:'f2-honest',st:2,mi:3,d:[5,13],chip:'Day 1 · Honest checks',t:'When a step fails, Miss.DS says so, then fixes the plan',x:'On an earlier run Step 2 returned nothing. She did not invent numbers. She reported the gap, and Step 3 was re-planned to rebuild and verify the cohort first.',
+  cs:[{b:[312,303,530,152],n:'No findings reported',x:'Empty results are stated plainly, with next steps.',m:3},
+      {b:[312,462,420,14],n:'Next choice: fix and re-run',x:'The plan changes course.',m:3},
+      {b:[311,572,500,36],n:'Why Step 3 changed',x:'Rebuild the cohort and verify it first.',m:3},
+      {b:[309,797,330,18],n:'2 of 5 steps finished',x:'Progress stays visible while the plan self-corrects.',m:3}]},
+ {k:'shot',img:'f2-baseline',st:2,mi:3,d:[0,12],chip:'Day 1 · A fair test',t:'A fair test: what must a model beat?',x:'Simple rules come first. A model has to beat them or it adds nothing. The caveats are stated up front.',
+  cs:[{b:[179,100,794,192],n:'Baselines and caveats',x:'Carry-forward scores PR-AUC 0.72. Small test set and batch effects are flagged.',m:3},
+      {b:[179,339,794,56],n:'Pick what to check next',x:'You steer again after Step 3.',m:3},
+      {b:[853,855,115,24],n:'Preparing Step 4',x:'The next step is written from what was just learned.',m:3}]},
+ {k:'shot',img:'f2-step4',st:2,mi:4,d:[6,14],chip:'Day 1 · Models',t:'Step 4 trains the models in your browser',x:'A logistic regression and a small TensorFlow.js network are trained and cross-checked right in the tab. No GPU rental and no server bill.',
+  cs:[{b:[179,339,350,16],n:'Your choice, applied',x:'Model conversion among people not yet Fulltime.',m:4},
+      {b:[179,413,745,18],n:'Two models, one fair test',x:'L2 logistic regression against a small TensorFlow.js MLP.',m:4},
+      {b:[179,518,700,74],n:'Why this step changed',x:'60% coverage filter, bootstrap confidence intervals, and a no-signal rule set in advance.',m:4},
+      {b:[176,744,800,90],n:'Then the Master Dossier',x:'Pick who will read it, then synthesise.',m:4}]},
+ {k:'svg',f:svgConclusion,ref:12,st:3,mi:2,d:[0,11],chip:'Day 1 · Conclusion',t:'The answer, in plain words',x:'The five steps end in a conclusion with its limits stated. That conclusion is what goes to Mr.Quality.',mis:[[0,1],[3,2]]},
+ {k:'shot',img:'f2-mrq',st:4,mi:0,d:[5,12],chip:'Day 2 · Mr.Quality',t:'Day 2: Mr.Quality audits the answer',x:'Give him a question, a question and answer, or the answer with steps. He delegates to five independent teams and consolidates the verdict.',
+  cs:[{b:[170,267,845,92],n:'Three kinds of task',x:'Find an answer, check an answer, or check the steps behind it.',m:0},
+      {b:[185,415,665,44],n:'Five independent teams',x:'Methods A to E, each working alone.',m:1},
+      {b:[862,415,136,44],n:'Consolidated verdict',x:'One consensus, with the agreement score.',m:1},
+      {b:[785,507,229,34],n:'Go to Answer Consistency',x:'Where the five-way check runs.',m:0}]},
+ {k:'shot',img:'f2-cons-rewrite',st:4,mi:0,d:[0,14],chip:'Day 2 · Rewrite',t:'Plain English in, exact columns out',x:'Paste the conclusion and ask for a broad validation. The system rewrites it against your real columns, files and batches, and shows why.',
+  cs:[{b:[58,296,930,90],n:'Clearer question',x:'Mapped to the exact outcome column and batch range.',m:0},
+      {b:[58,413,930,170],n:'Why we worded it this way',x:'Names the pairing recipe, the leakage rule and the scope.',m:0},
+      {b:[745,662,243,40],n:'Looks Good, pick 5 tests',x:'You stay in control of the wording.',m:0},
+      {b:[57,674,184,16],n:'Use my original instead',x:'Or keep your own words.',m:0}]},
+ {k:'shot',img:'f2-cons-5',st:4,mi:1,d:[6,16],chip:'Day 2 · Five methods',t:'Five independent ways to test the same claim',x:'Counts and baselines, rank tests, weighted estimates, regularised models, then tree and neural-network checks.',
+  cs:[{b:[58,194,300,243],n:'Check 1: counts and baseline',x:'Proportions and a plain logistic regression.',m:1},
+      {b:[373,194,300,243],n:'Check 2: rank tests',x:'Robust to skewed scales.',m:1},
+      {b:[687,194,300,243],n:'Check 3: weighted estimates',x:'By workshop level and batch.',m:1},
+      {b:[58,451,300,262],n:'Check 4: regularised model',x:'Trimmed features, L1 selection.',m:1},
+      {b:[373,451,300,262],n:'Check 5: tree and TensorFlow.js',x:'Permutation importance, cross-checked in the browser.',m:1},
+      {b:[58,756,560,22],n:'The rule',x:'If 4 or 5 agree, you can trust the answer.',m:1}]},
+ {k:'shot',img:'f2-cons-run',st:4,mi:2,d:[0,9],chip:'Day 2 · Running',t:'The five checks run one by one',x:'Each check crunches the data independently, so one mistake cannot hide in the others.',
+  cs:[{b:[33,212,980,324],n:'The testing question',x:'The same brief for all five.',m:2},
+      {b:[57,640,932,62],n:'Check 1 of 5 running',x:'Contingency tables and baseline logistic regression.',m:2}]},
+ {k:'shot',img:'f2-verdict',st:5,mi:0,d:[5,14],chip:'Day 2 · Verdict',t:'What agreement looks like',x:'On a saved example, all five runs agreed: Exceptional, 5 of 5, score 100. The consensus answer and verdict follow.',
+  cs:[{b:[91,160,968,134],n:'Agreement: Exceptional',x:'5 of 5 runs agree, score 100.',m:0},
+      {b:[91,308,968,304],n:'Run evaluations',x:'One bar per independent method.',m:0},
+      {b:[91,626,968,175],n:'Consensus answer and verdict',x:'Written once, in plain words.',m:1}]},
+ {k:'svg',f:svgFinale,ref:12,st:5,mi:1,d:[6,16],chip:'The big picture',t:'A data science team, inside a browser tab',x:'Cost, access and trust: no server bill, no ML degree needed, and every answer checked five ways.'}
+];
+var CFG={
+ id:'flow2',
+ header:'Flow 2 · From a plain question to a strategy, then double-checked',
+ tag:'IMPACTLENS · FLOW 2 OF 4',
+ pills:['Text to ML','No server bill','Self-correcting agents','5-way double-check'],
+ stages:STAGES_,macro:MACRO_,scenes:SC,l2scale:.85,
+ next:{href:'flow3-getting-started.html',label:'Next: Flow 3 · Getting started'}
+};
+
+/* ---------- generic player (maps + scenes) ---------- */
+var STAGES=CFG.stages,SC=CFG.scenes;
+var macroEl=document.getElementById('macro'),microEl=document.getElementById('micro');
+(function buildMacro(){
+  var h='',i;
+  CFG.macro.forEach(function(it,idx){
+    if(it.g){
+      h+='<div class="grp '+it.g+'"><div class="gl">'+it.label+'</div><div class="sts">';
+      for(i=it.from;i<=it.to;i++){
+        h+='<div class="st" data-s="'+i+'"><i>'+(i+1)+'</i><b>'+STAGES[i].n+'</b></div>';
+        if(i<it.to)h+='<span class="ar" data-from="'+i+'" data-to="'+(i+1)+'"></span>';
+      }
+      h+='</div></div>';
+    }else{
+      var prev=CFG.macro[idx-1],next=CFG.macro[idx+1],a=prev.to,b=next.from;
+      if(it.link==='hand'){
+        h+='<span class="ar big" data-from="'+a+'" data-to="h" data-mode="pre"></span>'+
+           '<div class="hand" data-h="'+a+'"><big>'+it.icon+'</big><small>'+it.label+'</small></div>'+
+           '<span class="ar big" data-from="h" data-to="'+b+'" data-mode="post"></span>';
+      }else if(it.link==='or'){
+        h+='<span class="or">'+(it.label||'or')+'</span>';
+      }else{
+        h+='<span class="ar big" data-from="'+a+'" data-to="'+b+'"></span>';
+      }
+    }
+  });
+  macroEl.innerHTML=h;
+})();
+function setMaps(stage,mi){
+  var sts=macroEl.querySelectorAll('.st'),i;
+  for(i=0;i<sts.length;i++){var s=+sts[i].getAttribute('data-s');sts[i].className='st'+(s<stage?' done':s===stage?' cur':'');}
+  var ars=macroEl.querySelectorAll('.ar');
+  for(i=0;i<ars.length;i++){
+    var el=ars[i],mode=el.getAttribute('data-mode'),from=el.getAttribute('data-from'),to=el.getAttribute('data-to'),cls='ar'+(el.classList.contains('big')?' big':'');
+    var ref,st;
+    if(mode==='pre'){ref=+from;st=stage===ref?'live':stage>ref?'done':'';}
+    else if(mode==='post'){ref=+to;st=stage===ref?'live':stage>ref?'done':'';}
+    else{ref=+to;st=stage===ref?'live':stage>ref?'done':'';}
+    el.className=cls+(st?' '+st:'');
+  }
+  var hs=macroEl.querySelectorAll('.hand');
+  for(i=0;i<hs.length;i++)hs[i].className='hand'+(stage===+hs[i].getAttribute('data-h')?' on':'');
+  var m=STAGES[stage].m,h2='<span class="mt">INSIDE THIS STEP</span>';
+  for(var j=0;j<m.length;j++){h2+='<span class="mc'+(j<mi?' done':j===mi?' cur':'')+'">'+m[j]+'</span>';if(j<m.length-1)h2+='<span class="ar'+(j<mi?' done':j===mi-1?' live':'')+'"></span>';}
+  microEl.innerHTML=h2;
+}
+
+var view=document.getElementById('view'),chip=document.getElementById('chip'),cap=document.getElementById('caption');
+var level=(location.hash==='#l2')?2:1,list=[],cum=[],total=0,cur=-1,t=0,playing=true,last=performance.now(),ended=false;
+var nodes={},reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+var nextEl=document.getElementById('nextflow');
+if(CFG.next){nextEl.href=CFG.next.href;nextEl.textContent=CFG.next.label+' ▶';}
+function dur(s){return s.d[level-1]*(level===2?(CFG.l2scale||1):1);}
+function labels(){
+  [1,2].forEach(function(l){var tt=0;SC.forEach(function(s){var d=s.d[l-1];if(d>0)tt+=d*(l===2?(CFG.l2scale||1):1);});
+    var m=Math.round(tt/30)/2;document.getElementById('lv'+l).textContent='Level '+l+' \u00B7 ~'+(m%1?m.toFixed(1):m)+' min';});
+}
+function build(){
+  list=SC.filter(function(s){return dur(s)>0;});cum=[];total=0;
+  list.forEach(function(s){cum.push(total);total+=dur(s);});
+  labels();
+  document.getElementById('lv1').setAttribute('aria-pressed',level===1);
+  document.getElementById('lv2').setAttribute('aria-pressed',level===2);
+  var old=view.querySelectorAll('.scene');for(var i=0;i<old.length;i++)old[i].parentNode.removeChild(old[i]);
+  nodes={};cur=-1;
+}
+function mk(i){
+  if(nodes[i])return nodes[i];
+  var s=list[i],el=document.createElement('div');el.className='scene';
+  if(s.k==='title'){
+    el.className+=' title';
+    var pills='';(CFG.pills||[]).forEach(function(p){pills+='<span>'+p+'</span>';});
+    el.innerHTML='<div class="tag">'+CFG.tag+' · LEVEL '+level+'</div><h2>'+s.t+'</h2><p>'+s.x+'</p><div class="pills">'+pills+'</div>';
+  }else if(s.k==='svg'){
+    K=dur(s)/(s.ref||12);if(K>1)K=1;
+    el.className+=' svgs';el.innerHTML=s.f();K=1;
+  }else{
+    el.className+=' shot';
+    var im=IMGS[s.img],cb='',lg='';
+    if(!im)throw new Error('missing image '+s.img);
+    if(s.z===undefined&&s.cs&&s.cs.length){var x0=1e9,y0=1e9,x1=0,y1=0;s.cs.forEach(function(c){x0=Math.min(x0,c.b[0]);y0=Math.min(y0,c.b[1]);x1=Math.max(x1,c.b[0]+c.b[2]);y1=Math.max(y1,c.b[1]+c.b[3]);});
+      x0=Math.max(im.ox,x0-30);y0=Math.max(im.oy,y0-30);x1=Math.min(im.ox+im.w,x1+30);y1=Math.min(im.oy+im.h,y1+30);s.z=[x0,y0,x1-x0,y1-y0];}
+    (s.cs||[]).forEach(function(c,j){
+      var pd=4,l=((c.b[0]-pd-im.ox)/im.w*100),tp=((c.b[1]-pd-im.oy)/im.h*100),w=(c.b[2]+2*pd)/im.w*100,h=(c.b[3]+2*pd)/im.h*100;
+      cb+='<div class="cb" data-i="'+j+'" style="left:'+l.toFixed(2)+'%;top:'+tp.toFixed(2)+'%;width:'+w.toFixed(2)+'%;height:'+h.toFixed(2)+'%"><u>'+(j+1)+'</u></div>';
+      lg+='<div class="lg" data-i="'+j+'"><u>'+(j+1)+'</u><div><b>'+c.n+'</b><span>'+(c.x||'')+'</span></div></div>';
+    });
+    el.innerHTML='<div class="imgcol"><div class="fit"><img alt="" src="'+im.f+'">'+cb+'</div></div><div class="legend">'+lg+'</div>';
+  }
+  view.insertBefore(el,chip);nodes[i]=el;return el;
+}
+function fit(el,s){
+  if(s.k!=='shot')return;
+  var col=el.querySelector('.imgcol'),f=el.querySelector('.fit'),im=IMGS[s.img];
+  var cw=col.clientWidth,ch=col.clientHeight,ar=im.w/im.h,w=Math.min(cw,ch*ar),h=w/ar;
+  f.style.width=w+'px';f.style.height=h+'px';f.style.left=((cw-w)/2)+'px';f.style.top=((ch-h)/2)+'px';
+  f._g={cw:cw,ch:ch,w:w,h:h,l:(cw-w)/2,t:(ch-h)/2};
+}
+function zoom(el,s,on){
+  var f=el.querySelector('.fit');if(!f||!f._g)return;
+  var g=f._g,im=IMGS[s.img];
+  if(!on||!s.z||reduce){f.style.transform='none';f.style.setProperty('--inv',1);return;}
+  var rx=(s.z[0]-im.ox)/im.w*g.w,ry=(s.z[1]-im.oy)/im.h*g.h,rw=s.z[2]/im.w*g.w,rh=s.z[3]/im.h*g.h;
+  var sc=Math.min(g.cw/rw,g.ch/rh,1.7);if(sc<1.2){f.style.transform='none';f.style.setProperty('--inv',1);return;}
+  var tx_=g.cw/2-g.l-(rx+rw/2)*sc,ty_=g.ch/2-g.t-(ry+rh/2)*sc;
+  f.style.setProperty('--inv',(1/sc).toFixed(3));
+  f.style.transform='translate('+tx_.toFixed(1)+'px,'+ty_.toFixed(1)+'px) scale('+sc.toFixed(3)+')';
+}
+function show(i){
+  if(i<0)i=0;if(i>=list.length)i=list.length-1;
+  if(cur>=0&&nodes[cur])nodes[cur].classList.remove('on');
+  if(cur>=0&&list[cur]&&list[cur].k==='svg'&&nodes[cur]){nodes[cur].parentNode.removeChild(nodes[cur]);delete nodes[cur];}
+  cur=i;t=0;ended=false;nextEl.hidden=true;
+  var s=list[i],el=mk(i);
+  el._z=0;fit(el,s);zoom(el,s,false);
+  void el.offsetWidth;el.classList.add('on');
+  chip.textContent=s.chip||'';chip.className='chip'+(s.chip&&s.k!=='title'?' on':'');
+  cap.querySelector('b').textContent=s.t;cap.querySelector('span').textContent=level===1&&s.x1?s.x1:s.x;
+  setMaps(s.st,s.mi);lastMi=s.st+':'+s.mi;
+  document.getElementById('count').textContent=(i+1)+' / '+list.length;
+  if(list[i+1]&&list[i+1].k==='shot')mk(i+1);
+}
+function tick(now){
+  var dt=(now-last)/1000;last=now;
+  if(playing&&cur>=0&&!ended){t+=dt;}
+  if(cur>=0){
+    var s=list[cur],d=dur(s),f=Math.min(1,t/d);
+    if(s.k==='shot'&&s.cs){
+      var el=nodes[cur],n=s.cs.length,rev=-1,mi=s.mi;
+      for(var j=0;j<n;j++){if(f>=0.1+0.6*j/n){rev=j;if(s.cs[j].m!=null)mi=s.cs[j].m;}}
+      var cbs=el.querySelectorAll('.cb'),lgs=el.querySelectorAll('.lg');
+      for(var j2=0;j2<n;j2++){
+        cbs[j2].classList.toggle('on',j2<=rev);cbs[j2].classList.toggle('cur',j2===rev);
+        lgs[j2].classList.toggle('on',j2<=rev&&(window.innerWidth>760||j2===rev));
+      }
+      if(s.z&&f>0.04&&!el._z){el._z=1;zoom(el,s,true);}
+      if(s.z&&f<0.04&&el._z){el._z=0;zoom(el,s,false);}
+      if(cap&&rev>=0&&window.innerWidth<=760){cap.querySelector('span').textContent=s.cs[rev].n+': '+(s.cs[rev].x||'');}
+      setMicroOnce(s.st,mi);
+    }else if(s.mis){
+      var mm=s.mi;for(var q=0;q<s.mis.length;q++){if(t>=s.mis[q][0]*(d/s.d[1]))mm=s.mis[q][1];}
+      setMicroOnce(s.st,mm);
+    }
+    if(t>=d){
+      if(cur<list.length-1)show(cur+1);
+      else{ended=true;playing=false;setPlayLabel();if(CFG.next)nextEl.hidden=false;}
+    }
+    var el_=cum[cur]+Math.min(t,d);
+    document.getElementById('prog').style.width=(el_/total*100)+'%';
+    var rem=Math.max(0,Math.round(total-el_));document.getElementById('clock').textContent=Math.floor(rem/60)+':'+('0'+rem%60).slice(-2)+' left';
+  }
+  requestAnimationFrame(tick);
+}
+var lastMi='';
+function setMicroOnce(st,mi){var k=st+':'+mi;if(k!==lastMi){lastMi=k;setMaps(st,mi);}}
+function setPlayLabel(){var b=document.getElementById('play');b.textContent=ended?'Replay':playing?'Pause':'Play';b.setAttribute('aria-label',b.textContent);}
+document.getElementById('play').onclick=function(){if(ended){show(0);playing=true;}else playing=!playing;setPlayLabel();};
+document.getElementById('prev').onclick=function(){show(cur-1);};
+document.getElementById('next').onclick=function(){show(cur+1);};
+function setLevel(l){level=l;try{history.replaceState(null,'',l===2?'#l2':'#l1');}catch(e){}build();playing=true;show(0);setPlayLabel();}
+document.getElementById('lv1').onclick=function(){setLevel(1);};
+document.getElementById('lv2').onclick=function(){setLevel(2);};
+document.addEventListener('keydown',function(e){
+  if(e.key==='ArrowRight'){show(cur+1);}else if(e.key==='ArrowLeft'){show(cur-1);}
+  else if(e.key===' '){e.preventDefault();document.getElementById('play').click();}
+});
+window.addEventListener('resize',function(){if(cur>=0&&nodes[cur])fit(nodes[cur],list[cur]);});
+build();show(0);setPlayLabel();requestAnimationFrame(function(n){last=n;requestAnimationFrame(tick);});
+window.__f1={show:function(i){show(i);},get n(){return list.length;},get total(){return total;},setLevel:setLevel,seek:function(x){t=x;},get list(){return list;},get scale(){return level===2?(CFG.l2scale||1):1;}};
+
+})();
+</script>
+</body>
+</html>
