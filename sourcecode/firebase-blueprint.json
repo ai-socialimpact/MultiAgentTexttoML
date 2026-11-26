@@ -1,0 +1,120 @@
+{
+  "entities": {
+    "Project": {
+      "title": "Project",
+      "description": "A user's project for data analysis",
+      "type": "object",
+      "properties": {
+        "projectId": { "type": "string", "description": "Unique project ID" },
+        "userId": { "type": "string", "description": "User ID" },
+        "name": { "type": "string", "description": "Project name" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation date" },
+        "schemaDescription": { "type": "string", "description": "Schema description" },
+        "fewShotDescription": { "type": "string", "description": "Few shot description" },
+        "classifierGuidelines": { "type": "string", "description": "Classifier guidelines" },
+        "fewShotExamples": { "type": "string", "description": "Few shot examples" }
+      },
+      "required": ["projectId", "userId", "name", "createdAt"]
+    },
+    "File": {
+      "title": "File",
+      "description": "A data file associated with a project",
+      "type": "object",
+      "properties": {
+        "id": { "type": "number", "description": "File ID" },
+        "projectId": { "type": "string", "description": "Project ID" },
+        "name": { "type": "string", "description": "File name" },
+        "content": { "type": "string", "description": "File content" },
+        "type": { "type": "string", "description": "File type" },
+        "uploadedAt": { "type": "string", "format": "date-time", "description": "Upload date" }
+      },
+      "required": ["projectId", "name", "content", "type", "uploadedAt"]
+    },
+    "History": {
+      "title": "History",
+      "description": "Analysis history",
+      "type": "object",
+      "properties": {
+        "id": { "type": "number", "description": "History ID" },
+        "projectId": { "type": "string", "description": "Project ID" },
+        "userId": { "type": "string", "description": "User ID" },
+        "userQuery": { "type": "string", "description": "User query" },
+        "refinedUserQuery": { "type": "string", "description": "Refined query" },
+        "generatedCode": { "type": "array", "items": { "type": "string" }, "description": "Generated code" },
+        "executionStatus": { "type": "string", "description": "Execution status" },
+        "narrative": { "type": "string", "description": "Narrative" },
+        "timestamp": { "type": "string", "format": "date-time", "description": "Timestamp" }
+      },
+      "required": ["projectId", "userId", "userQuery", "executionStatus", "timestamp"]
+    },
+    "Favourite": {
+      "title": "Favourite",
+      "description": "Favourite analysis or full strategic favourite bundle with dual CSV SHA-256 fingerprints",
+      "type": "object",
+      "properties": {
+        "id": { "type": "number", "description": "Favourite ID" },
+        "projectId": { "type": "string", "description": "Project ID" },
+        "userId": { "type": "string", "description": "User ID" },
+        "userQuery": { "type": "string", "description": "User query" },
+        "refinedUserQuery": { "type": "string", "description": "Refined query" },
+        "generatedCode": { "type": "array", "items": { "type": "string" }, "description": "Generated code" },
+        "narrative": { "type": "string", "description": "Narrative" },
+        "analysisPlan": { "type": "array", "items": { "type": "string" }, "description": "Analysis plan" },
+        "analysisResult": { "type": "string", "description": "Analysis result (JSON string)" },
+        "timestamp": { "type": "string", "format": "date-time", "description": "Timestamp" },
+        "feedback": { "type": "string", "description": "Feedback" },
+        "schemaVersion": { "type": "string", "description": "Favourite schema version" },
+        "favouriteType": { "type": "string", "description": "Type identifier (e.g. strategic_dossier)" },
+        "explorationMode": { "type": "string", "description": "Exploration preset key" },
+        "audiencePersona": { "type": "string", "description": "Audience persona key" },
+        "metaPlanOverview": { "type": "string", "description": "5-step plan overview" },
+        "csvFingerprints": {
+          "type": "array",
+          "description": "Dual SHA-256 fingerprints (columnsSha256 and dataSha256) per CSV file"
+        },
+        "strategicSteps": {
+          "type": "array",
+          "description": "Structured 5-step questions, code, and result snapshots"
+        },
+        "dossierSnapshot": {
+          "type": "object",
+          "description": "Structured strategic dossier verdict, executive summary, recommendations, and evidence"
+        }
+      },
+      "required": ["projectId", "userId", "userQuery", "timestamp"]
+    },
+    "User": {
+      "title": "User",
+      "description": "User profile",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "User ID" },
+        "email": { "type": "string", "format": "email", "description": "User email" },
+        "name": { "type": "string", "description": "User name" }
+      },
+      "required": ["userId", "email"]
+    }
+  },
+  "firestore": {
+    "/projects/{projectId}": {
+      "schema": { "$ref": "Project" },
+      "description": "User projects"
+    },
+    "/files/{fileId}": {
+      "schema": { "$ref": "File" },
+      "description": "Project files"
+    },
+    "/history/{historyId}": {
+      "schema": { "$ref": "History" },
+      "description": "Analysis history"
+    },
+    "/favourites/{favouriteId}": {
+      "schema": { "$ref": "Favourite" },
+      "description": "Favourites"
+    },
+    "/users/{userId}": {
+      "schema": { "$ref": "User" },
+      "description": "User profiles"
+    }
+  }
+}

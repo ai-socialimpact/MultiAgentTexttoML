@@ -1,0 +1,153 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default-deny catch-all rule as required by Firebase Security Guidelines
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128;
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['userId', 'email']) &&
+             data.keys().hasOnly(['userId', 'email', 'name']) &&
+             data.userId == request.auth.uid &&
+             data.userId is string && data.userId.size() <= 128 &&
+             data.email is string && data.email.size() <= 256 &&
+             (!('name' in data) || (data.name is string && data.name.size() <= 256));
+    }
+
+    function isValidProject(data) {
+      return data.keys().hasAll(['projectId', 'userId', 'name', 'createdAt']) &&
+             data.keys().hasOnly(['projectId', 'userId', 'name', 'createdAt', 'schemaDescription', 'fewShotDescription', 'classifierGuidelines', 'fewShotExamples', 'dataFiles']) &&
+             data.projectId is string && data.projectId.size() <= 128 &&
+             data.userId == request.auth.uid &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 256 &&
+             data.createdAt is string && data.createdAt.size() <= 128 &&
+             (!('schemaDescription' in data) || (data.schemaDescription is string && data.schemaDescription.size() <= 500000)) &&
+             (!('fewShotDescription' in data) || (data.fewShotDescription is string && data.fewShotDescription.size() <= 500000)) &&
+             (!('classifierGuidelines' in data) || (data.classifierGuidelines is string && data.classifierGuidelines.size() <= 500000)) &&
+             (!('fewShotExamples' in data) || (data.fewShotExamples is string && data.fewShotExamples.size() <= 500000)) &&
+             (!('dataFiles' in data) || (data.dataFiles is list && data.dataFiles.size() <= 100));
+    }
+
+    function isValidFile(data) {
+      return data.keys().hasAll(['projectId', 'name', 'content', 'type', 'uploadedAt']) &&
+             data.keys().hasOnly(['id', 'projectId', 'name', 'content', 'type', 'uploadedAt']) &&
+             data.projectId is string && data.projectId.size() <= 128 &&
+             data.name is string && data.name.size() <= 256 &&
+             data.content is string && data.content.size() <= 1000000 &&
+             data.type is string && data.type.size() <= 100 &&
+             data.uploadedAt is string && data.uploadedAt.size() <= 128 &&
+             (!('id' in data) || (data.id is number || data.id is string));
+    }
+
+    function isValidHistory(data) {
+      return data.keys().hasAll(['projectId', 'userId', 'userQuery', 'executionStatus', 'timestamp']) &&
+             data.keys().hasOnly(['id', 'projectId', 'userId', 'userQuery', 'refinedUserQuery', 'generatedCode', 'executionStatus', 'narrative', 'timestamp']) &&
+             data.projectId is string && data.projectId.size() <= 128 &&
+             data.userId == request.auth.uid &&
+             data.userQuery is string && data.userQuery.size() <= 10000 &&
+             data.executionStatus is string && data.executionStatus.size() <= 100 &&
+             data.timestamp is string && data.timestamp.size() <= 128 &&
+             (!('id' in data) || (data.id is number || data.id is string)) &&
+             (!('refinedUserQuery' in data) || (data.refinedUserQuery is string && data.refinedUserQuery.size() <= 10000)) &&
+             (!('narrative' in data) || (data.narrative is string && data.narrative.size() <= 100000)) &&
+             (!('generatedCode' in data) || (data.generatedCode is list && data.generatedCode.size() <= 50));
+    }
+
+    function isValidFavourite(data) {
+      return data.keys().hasAll(['projectId', 'userId', 'userQuery', 'timestamp']) &&
+             data.keys().hasOnly([
+               'id', 'projectId', 'userId', 'userQuery', 'refinedUserQuery',
+               'generatedCode', 'narrative', 'timestamp', 'feedback',
+               'analysisPlan', 'analysisResult',
+               'schemaVersion', 'favouriteType', 'explorationMode', 'audiencePersona',
+               'metaPlanOverview', 'csvFingerprints', 'strategicSteps', 'dossierSnapshot'
+             ]) &&
+             data.projectId is string && data.projectId.size() > 0 && data.projectId.size() <= 128 &&
+             data.userId == request.auth.uid &&
+             data.userQuery is string && data.userQuery.size() <= 10000 &&
+             data.timestamp is string && data.timestamp.size() <= 128 &&
+             (!('id' in data) || (data.id is number || data.id is string)) &&
+             (!('refinedUserQuery' in data) || (data.refinedUserQuery is string && data.refinedUserQuery.size() <= 10000)) &&
+             (!('narrative' in data) || (data.narrative is string && data.narrative.size() <= 100000)) &&
+             (!('feedback' in data) || (data.feedback is string && data.feedback.size() <= 1000)) &&
+             (!('analysisResult' in data) || (data.analysisResult == null || (data.analysisResult is string && data.analysisResult.size() <= 500000))) &&
+             (!('generatedCode' in data) || (data.generatedCode is list && data.generatedCode.size() <= 50 && (data.generatedCode.size() == 0 || data.generatedCode[0] is string))) &&
+             (!('analysisPlan' in data) || (data.analysisPlan is list && data.analysisPlan.size() <= 50 && (data.analysisPlan.size() == 0 || data.analysisPlan[0] is string))) &&
+             (!('schemaVersion' in data) || (data.schemaVersion is string && data.schemaVersion.size() <= 32)) &&
+             (!('favouriteType' in data) || (data.favouriteType is string && data.favouriteType.size() <= 64)) &&
+             (!('explorationMode' in data) || (data.explorationMode is string && data.explorationMode.size() <= 64)) &&
+             (!('audiencePersona' in data) || (data.audiencePersona is string && data.audiencePersona.size() <= 64)) &&
+             (!('metaPlanOverview' in data) || (data.metaPlanOverview is string && data.metaPlanOverview.size() <= 10000)) &&
+             (!('csvFingerprints' in data) || (data.csvFingerprints is list && data.csvFingerprints.size() <= 50 && (data.csvFingerprints.size() == 0 || data.csvFingerprints[0] is map))) &&
+             (!('strategicSteps' in data) || (data.strategicSteps is list && data.strategicSteps.size() <= 15 && (data.strategicSteps.size() == 0 || data.strategicSteps[0] is map))) &&
+             (!('dossierSnapshot' in data) || (data.dossierSnapshot is map));
+    }
+
+    // ===============================================================
+    // Collection Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow get, list: if isOwner(userId);
+      allow create, update: if isOwner(userId) && isValidUser(request.resource.data);
+      allow delete: if isOwner(userId);
+    }
+
+    match /projects/{projectId} {
+      allow get: if isSignedIn() && (resource == null || resource.data.userId == request.auth.uid);
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && isValidId(projectId) && request.resource.data.userId == request.auth.uid && isValidProject(request.resource.data);
+      allow update: if isSignedIn() && isValidId(projectId) && resource.data.userId == request.auth.uid && request.resource.data.userId == request.auth.uid && isValidProject(request.resource.data);
+      allow delete: if isSignedIn() && isValidId(projectId) && resource.data.userId == request.auth.uid;
+    }
+
+    match /files/{fileId} {
+      allow get: if isSignedIn() && (resource == null || get(/databases/$(database)/documents/projects/$(resource.data.projectId)).data.userId == request.auth.uid);
+      allow list: if isSignedIn() && get(/databases/$(database)/documents/projects/$(resource.data.projectId)).data.userId == request.auth.uid;
+      allow create: if isSignedIn() && isValidId(fileId) && get(/databases/$(database)/documents/projects/$(request.resource.data.projectId)).data.userId == request.auth.uid && isValidFile(request.resource.data);
+      allow update: if isSignedIn() && isValidId(fileId) && get(/databases/$(database)/documents/projects/$(resource.data.projectId)).data.userId == request.auth.uid && isValidFile(request.resource.data);
+      allow delete: if isSignedIn() && isValidId(fileId) && get(/databases/$(database)/documents/projects/$(resource.data.projectId)).data.userId == request.auth.uid;
+    }
+
+    match /history/{historyId} {
+      allow get: if isSignedIn() && (resource == null || resource.data.userId == request.auth.uid);
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid && isValidHistory(request.resource.data);
+      allow update: if isSignedIn() && resource.data.userId == request.auth.uid && request.resource.data.userId == request.auth.uid && isValidHistory(request.resource.data);
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    match /favourites/{favouriteId} {
+      allow get: if isSignedIn() && (resource == null || resource.data.userId == request.auth.uid);
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid && isValidFavourite(request.resource.data);
+      allow update: if isSignedIn() && resource.data.userId == request.auth.uid && request.resource.data.userId == request.auth.uid && request.resource.data.projectId == resource.data.projectId && isValidFavourite(request.resource.data);
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    match /test/{testId} {
+      allow read: if true;
+    }
+  }
+}

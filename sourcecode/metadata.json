@@ -1,0 +1,5 @@
+{
+  "name": "Oct 10 vN1 Tech4Dev: ImpactLens",
+  "description": "A multi-agent AI tool for NGOs to transform raw data into intelligence using natural language, featuring on-device ML and sandboxed code execution.",
+  "requestFramePermissions": []
+}
