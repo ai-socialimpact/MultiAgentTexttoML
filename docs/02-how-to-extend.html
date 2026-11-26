@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>ImpactLens: How to Extend It</title>
+  <style>
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <link rel="stylesheet" href="assets.css" />
+  <meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Space+Grotesk:wght@500;700&display=swap">
+</head>
+<body>
+<nav><a href="index.html">&larr; ImpactLens docs</a></nav><main>
+<h1 id="impactlens-how-to-extend-it">ImpactLens: How to Extend It</h1>
+<p>A practical guide for a developer adding to ImpactLens. File names
+refer to the application source. Read <a
+href="00-overview.html">00-overview.md</a> first.</p>
+<h2 id="code-map">Code map</h2>
+<table>
+<thead>
+<tr class="header">
+<th>Path</th>
+<th>What lives there</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>src/App.tsx</code></td>
+<td>Chooses Login, Project selection or Dashboard</td>
+</tr>
+<tr class="even">
+<td><code>src/components/Dashboard.tsx</code></td>
+<td>The tab bar and which screen shows</td>
+</tr>
+<tr class="odd">
+<td><code>src/components/*.tsx</code></td>
+<td>One file per tab, plus shared viewers</td>
+</tr>
+<tr class="even">
+<td><code>src/lib/agents.ts</code></td>
+<td>All AI prompts and the model-fallback helper</td>
+</tr>
+<tr class="odd">
+<td><code>src/lib/DataAgentEngine.ts</code></td>
+<td>Runs AI-written code in a Web Worker</td>
+</tr>
+<tr class="even">
+<td><code>src/lib/localDb.ts</code></td>
+<td>Browser file storage (Dexie / IndexedDB)</td>
+</tr>
+<tr class="odd">
+<td><code>src/lib/strategicFavourites.ts</code></td>
+<td>Saved strategic bundles and CSV fingerprints</td>
+</tr>
+<tr class="even">
+<td><code>src/contexts/</code></td>
+<td>Auth, current project, per-agent model choices</td>
+</tr>
+<tr class="odd">
+<td><code>firestore.rules</code>,
+<code>firebase-blueprint.json</code></td>
+<td>Database rules and data shapes</td>
+</tr>
+</tbody>
+</table>
+<h2 id="recipe-1-add-a-new-ai-agent">Recipe 1: add a new AI agent</h2>
+<ol type="1">
+<li>Open <code>src/lib/agents.ts</code>. Add a function inside the
+<code>agents</code> object, next to similar ones.</li>
+<li>Build the prompt string. If you want JSON back, include the word
+"JSON" in the prompt. The helper uses that word to switch on JSON mode
+and to parse the reply.</li>
+<li>Call
+<code>callWithRetry('My Agent', prompt, async (model) =&gt; { ... }, preferredModel, onLog)</code>.
+The inner function is only used for Gemini models. Claude and GPT models
+are called by the helper itself.</li>
+<li>Return <code>{ ...data, modelUsed }</code> like the other agents so
+screens can show which model answered.</li>
+<li>Call it from a component with
+<code>agents.myAgent(args, models.&lt;role&gt;, addDebugLog)</code>.</li>
+</ol>
+<p>Tip: copy <code>similaritySearch</code> or
+<code>explainFindings</code>. They are short and show the whole
+pattern.</p>
+<h2 id="recipe-2-give-the-new-agent-its-own-model-setting">Recipe 2:
+give the new agent its own model setting</h2>
+<ol type="1">
+<li>In <code>src/contexts/SettingsContext.tsx</code>, add the key to
+<code>ModelConfigs</code> and to <code>defaultModels</code>.</li>
+<li>Change the version string <code>agent_model_configs_version</code>.
+Without this, returning users keep their old saved settings and never
+see the new key.</li>
+<li>Add a row for it in
+<code>src/components/AgentSettings.tsx</code>.</li>
+</ol>
+<h2 id="recipe-3-add-or-change-an-ai-model">Recipe 3: add or change an
+AI model</h2>
+<ul>
+<li>Add the model id to the <code>MODELS</code> list at the top of
+<code>agents.ts</code>. The order is the fallback order when a model is
+rate limited or overloaded.</li>
+<li>Names starting with <code>claude</code> go to Anthropic, names
+starting with <code>gpt</code> go to OpenAI, anything else goes to
+Gemini. A new vendor needs a new branch in
+<code>callWithRetry</code>.</li>
+<li>Add the same id to the picker in
+<code>AgentSettings.tsx</code>.</li>
+</ul>
+<h2 id="recipe-4-add-a-new-tab">Recipe 4: add a new tab</h2>
+<ol type="1">
+<li>Create <code>src/components/MyTab.tsx</code> exporting a React
+component. Use <code>useProject()</code> for the current project and
+<code>useAuth()</code> for the user.</li>
+<li>In <code>Dashboard.tsx</code>: add the id to the <code>Tab</code>
+type, add an entry to the <code>tabs</code> array (label and a lucide
+icon), and add a line
+<code>{activeTab === 'my_tab' &amp;&amp; &lt;MyTab /&gt;}</code> in the
+main area.</li>
+<li>To pass data between tabs (as Strategic does for Consistency), keep
+the value in <code>Dashboard</code> state and pass it as a prop with a
+clear-callback.</li>
+</ol>
+<h2 id="recipe-5-load-project-data-and-run-analysis">Recipe 5: load
+project data and run analysis</h2>
+<p>Copy the pattern in <code>Wizard.tsx</code> (around the CSV loading
+code):</p>
+<ol type="1">
+<li>Read the project's CSVs from <code>localDb.files</code> by
+<code>projectId</code> and file name.</li>
+<li>Parse each with PapaParse (<code>header: true</code>,
+<code>dynamicTyping: true</code>,
+<code>skipEmptyLines: true</code>).</li>
+<li>Build a <code>datasets</code> object keyed by file name.</li>
+<li><code>new DataAgentEngine().runAnalysis(code, datasets, onLog)</code>.
+It tests on 5 rows first, then runs everything.</li>
+</ol>
+<p>The AI-written code receives <code>data</code>, <code>dfd</code>
+(Danfo.js) and <code>tf</code> (TensorFlow.js). To make another library
+available, add an <code>importScripts(...)</code> line inside the worker
+source in <code>DataAgentEngine.ts</code>, and mention it in the prompt
+in <code>generateCode</code>.</p>
+<h2 id="recipe-6-store-something-new-in-firestore">Recipe 6: store
+something new in Firestore</h2>
+<ol type="1">
+<li>Write with <code>addDoc(collection(db, 'favourites'), data)</code>
+or <code>setDoc</code>. Always include <code>userId</code> and
+<code>projectId</code>.</li>
+<li><strong>Update <code>firestore.rules</code>.</strong> Each
+collection has an <code>isValid...</code> function with an
+allowed-fields list (<code>hasOnly</code>). A new field is rejected
+until you add it there, with a type and size limit. This is the most
+common cause of "permission denied" after adding a feature.</li>
+<li>Update <code>firebase-blueprint.json</code> so the documented shape
+matches. (It is already missing <code>dataFiles</code>.)</li>
+<li>Strip <code>undefined</code> values before saving.
+<code>AnswerStrategically.tsx</code> has a
+<code>sanitizeForFirestore</code> helper for this.</li>
+<li>Redeploy the rules
+(<code>firebase deploy --only firestore:rules</code>).</li>
+</ol>
+<h2 id="recipe-7-add-a-new-audience-persona">Recipe 7: add a new
+audience persona</h2>
+<p>Personas live in <code>src/lib/dossierPersonas.ts</code> (school
+student, college graduate, NGO leader, data scientist). Add an entry
+there. The explainer and dossier screens read this list.</p>
+<h2 id="recipe-8-add-a-new-result-display">Recipe 8: add a new result
+display</h2>
+<p><code>SmartResultViewer.tsx</code> picks a template (summary, table,
+explorer, raw) from the shape of the result. Add a new template there,
+and extend the shape detection.
+<code>.aistudio/artifacts/brain/.../implementation_plan.md</code>
+describes the intent.</p>
+<h2 id="suggested-improvements-in-order-of-value">Suggested
+improvements, in order of value</h2>
+<ol type="1">
+<li><strong>Move AI calls behind a small server.</strong> Create a cloud
+function or Express route that holds the keys and forwards prompts.
+Replace the three SDK clients at the top of <code>agents.ts</code> with
+one <code>fetch</code> to it. Remove the key injection from
+<code>vite.config.ts</code>. This is the one change most worth doing
+before real use.</li>
+<li><strong>Add tests.</strong> Start with pure helpers: result
+normalising in <code>SmartResultViewer</code>,
+<code>sanitizeForFirestore</code>, CSV fingerprinting in
+<code>strategicFavourites.ts</code>. Then a few agent calls against a
+mocked <code>callWithRetry</code>.</li>
+<li><strong>Split the giant files.</strong>
+<code>AnswerStrategically.tsx</code> (about 6,000 lines) and
+<code>ConsistencyReportModal.tsx</code> (about 3,000) are hard to change
+safely. Pull out the step cards, the dossier view and the Firestore code
+into their own files.</li>
+<li><strong>Share data across devices.</strong> Upload CSVs to Firebase
+Storage (already initialised in <code>firebase.ts</code>, not yet used)
+instead of IndexedDB only, and add matching storage rules.</li>
+<li><strong>Tighten the sandbox.</strong> Run the worker inside a
+sandboxed iframe with a strict content-security policy, and self-host
+Danfo.js and TensorFlow.js instead of loading them from a CDN.</li>
+<li><strong>Control cost.</strong> Add a per-user daily call limit on
+the server, and log token use per agent.</li>
+<li><strong>Tidy.</strong> Rename the package, remove unused
+<code>express</code>/<code>tsx</code>, and fix the README to list all
+three keys.</li>
+</ol>
+<h2 id="before-you-merge-a-change">Before you merge a change</h2>
+<ul>
+<li>Run <code>npm run lint</code> (this is the TypeScript check) and
+<code>npm run build</code>.</li>
+<li>Try the Wizard end to end with a small CSV, once with a question
+that should fail, to see the retry loop work.</li>
+<li>If you touched Firestore, test a save and a reload with a real
+signed-in user.</li>
+</ul>
+</main>
+</body>
+</html>

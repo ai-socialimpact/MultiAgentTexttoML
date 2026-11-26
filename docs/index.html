@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ImpactLens Documentation</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Space+Grotesk:wght@500;700&display=swap">
+<link rel="stylesheet" href="assets.css">
+<style>
+.cards{display:grid;gap:14px;margin:24px 0;padding:0;list-style:none}
+.cards a{display:block;border:1px solid var(--line);border-radius:10px;padding:16px 18px;text-decoration:none;color:var(--fg)}
+.cards a:hover,.cards a:focus-visible{border-color:var(--accent)}
+.cards b{display:block;font-family:'Space Grotesk',Inter,sans-serif;font-size:1.1rem;color:var(--accent)}
+.cards span{color:var(--muted);font-size:.95rem}
+.lead{color:var(--muted);font-size:1.05rem}
+</style></head><body><main>
+<h1>ImpactLens documentation</h1>
+<p class="lead">ImpactLens lets NGO staff ask questions about their CSV data in plain English. AI writes a small analysis program, the browser runs it, and the answer comes back explained in simple words.</p>
+<ul class="cards">
+<li><a href="00-overview.html"><b>0. High-level design</b><span>What the app does, its components, data flows, dependencies, setup, and known risks and gaps.</span></a></li>
+<li><a href="01-design-diagrams.html"><b>1. Design diagrams and the idea</b><span>Five diagrams: the idea, the architecture, the retry loop, the strategic and consistency modes, and where data lives.</span></a></li>
+<li><a href="02-how-to-extend.html"><b>2. How to extend it</b><span>Code map, step-by-step recipes (add an agent, model, tab or Firestore field) and a ranked list of improvements.</span></a></li>
+</ul>
+<p>Suggested order: read the design, look at the diagrams, then use the extend guide when you start changing code.</p>
+<p style="color:var(--muted);font-size:.9rem">Written from reading the source code; the app was not run. Deployment is not covered.</p>
+</main></body></html>

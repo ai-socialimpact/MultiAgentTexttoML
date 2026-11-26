@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ImpactLens Design Diagrams</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap">
+<style>
+/* Layout: single reading column; each diagram sits under a short explanation. */
+:root{
+  --bg:#f7f8f6; --surface:#ffffff; --fg:#17201d; --muted:#5a6762; --line:#d8dfdb;
+  --accent:#0f766e; --accent-soft:#d9efec; --warn:#b45309; --warn-soft:#fbeed8;
+  --ai:#4338ca; --ai-soft:#e4e3f8; --store:#475569; --store-soft:#e5e9ee;
+  --font-body:'Inter',system-ui,sans-serif; --font-head:'Space Grotesk','Inter',system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#111715; --surface:#19221f; --fg:#e8eeeb; --muted:#9fb0aa; --line:#2c3a36;
+  --accent:#5eead4; --accent-soft:#12403b; --warn:#fbbf24; --warn-soft:#3d2f10;
+  --ai:#a5b4fc; --ai-soft:#262a55; --store:#b6c2cc; --store-soft:#26323a; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#111715; --surface:#19221f; --fg:#e8eeeb; --muted:#9fb0aa; --line:#2c3a36;
+  --accent:#5eead4; --accent-soft:#12403b; --warn:#fbbf24; --warn-soft:#3d2f10;
+  --ai:#a5b4fc; --ai-soft:#262a55; --store:#b6c2cc; --store-soft:#26323a; color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--font-body);font-size:15px;line-height:1.6;
+  padding-block:32px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+main{max-width:880px;margin:0 auto;display:flex;flex-direction:column;gap:40px}
+h1,h2{font-family:var(--font-head);text-wrap:balance;margin:0;line-height:1.2}
+h1{font-size:2rem} h2{font-size:1.3rem}
+p{margin:0;max-width:65ch} .lead{color:var(--muted);font-size:1.05rem}
+section{display:flex;flex-direction:column;gap:14px}
+.fig{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px;overflow-x:auto}
+.fig svg{display:block;min-width:640px;width:100%;height:auto}
+.legend{display:flex;flex-wrap:wrap;gap:16px;color:var(--muted);font-size:13px}
+.legend span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+.l-ui::before{background:var(--accent)} .l-ai::before{background:var(--ai)} .l-st::before{background:var(--store)} .l-w::before{background:var(--warn)}
+svg text{font-family:var(--font-body);fill:var(--fg)}
+svg .t{font-size:13px} svg .s{font-size:11.5px;fill:var(--muted)} svg .h{font-size:12px;font-weight:600;letter-spacing:.04em}
+.ui{fill:var(--accent-soft);stroke:var(--accent)} .ai{fill:var(--ai-soft);stroke:var(--ai)}
+.st{fill:var(--store-soft);stroke:var(--store)} .wn{fill:var(--warn-soft);stroke:var(--warn)}
+.plain{fill:var(--surface);stroke:var(--line)} svg rect,svg path{stroke-width:1.3}
+.arr{stroke:var(--muted);fill:none;stroke-width:1.5} .dash{stroke-dasharray:5 4}
+ul{margin:0;padding-left:20px;max-width:65ch} li{margin-bottom:4px}
+</style>
+
+</head><body>
+<main>
+<nav style="font-size:14px"><a href="index.html">&larr; ImpactLens docs</a></nav>
+<header>
+  <h1>ImpactLens: the idea and how it fits together</h1>
+  <p class="lead">NGO staff ask questions about their spreadsheets in plain English. AI writes a small analysis program, the browser runs it on their data, and the answer comes back in words the reader's level.</p>
+</header>
+
+<section>
+  <h2>1. The idea in one picture</h2>
+  <p>A person should not need to know code or statistics. Four steps hide that work: understand the question, plan the analysis, write and run the code, then explain the result.</p>
+  <div class="fig">
+  <svg viewBox="0 0 860 250" role="img" aria-label="Flow from question to explained answer">
+    <defs><marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--muted)" stroke="none"/></marker></defs>
+    <rect class="ui" x="10" y="80" width="140" height="70" rx="8"/><text class="h" x="80" y="107" text-anchor="middle">QUESTION</text><text class="s" x="80" y="126" text-anchor="middle">"Which districts</text><text class="s" x="80" y="140" text-anchor="middle">improved most?"</text>
+    <rect class="ai" x="190" y="80" width="140" height="70" rx="8"/><text class="h" x="260" y="107" text-anchor="middle">UNDERSTAND</text><text class="s" x="260" y="126" text-anchor="middle">match words to</text><text class="s" x="260" y="140" text-anchor="middle">real column names</text>
+    <rect class="ai" x="370" y="80" width="140" height="70" rx="8"/><text class="h" x="440" y="107" text-anchor="middle">PLAN + CODE</text><text class="s" x="440" y="126" text-anchor="middle">steps you can edit,</text><text class="s" x="440" y="140" text-anchor="middle">then JavaScript</text>
+    <rect class="ui" x="550" y="80" width="140" height="70" rx="8"/><text class="h" x="620" y="107" text-anchor="middle">RUN</text><text class="s" x="620" y="126" text-anchor="middle">in your browser,</text><text class="s" x="620" y="140" text-anchor="middle">on your CSV data</text>
+    <rect class="ai" x="730" y="80" width="120" height="70" rx="8"/><text class="h" x="790" y="107" text-anchor="middle">EXPLAIN</text><text class="s" x="790" y="126" text-anchor="middle">plain-language</text><text class="s" x="790" y="140" text-anchor="middle">answer + charts</text>
+    <path class="arr" d="M150 115H188" marker-end="url(#a1)"/><path class="arr" d="M330 115H368" marker-end="url(#a1)"/><path class="arr" d="M510 115H548" marker-end="url(#a1)"/><path class="arr" d="M690 115H728" marker-end="url(#a1)"/>
+    <rect class="wn" x="370" y="180" width="320" height="46" rx="8"/><text class="t" x="530" y="200" text-anchor="middle">Check result. If wrong or failed,</text><text class="t" x="530" y="217" text-anchor="middle">explain the error and rewrite the code</text>
+    <path class="arr dash" d="M620 150V178" marker-end="url(#a1)"/><path class="arr dash" d="M450 203H400V152" marker-end="url(#a1)"/>
+  </svg></div>
+  <div class="legend"><span class="l-ui">Person or browser</span><span class="l-ai">AI model call</span><span class="l-w">Safety loop</span></div>
+</section>
+
+<section>
+  <h2>2. Architecture: everything runs in the browser</h2>
+  <p>There is no server of the team's own. The page talks straight to Firebase for sign-in and saved work, and to AI providers for the thinking.</p>
+  <div class="fig">
+  <svg viewBox="0 0 860 400" role="img" aria-label="Architecture layers">
+    <defs><marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--muted)" stroke="none"/></marker></defs>
+    <rect class="plain" x="10" y="10" width="560" height="380" rx="10"/><text class="h" x="26" y="32">USER'S BROWSER</text>
+    <rect class="ui" x="30" y="48" width="520" height="62" rx="8"/><text class="h" x="46" y="70">SCREENS</text><text class="s" x="46" y="90">Login · Projects · Dashboard with 10 tabs (Wizard, Consistency, Strategic, Saved Queries, Favourites ...)</text>
+    <rect class="ui" x="30" y="124" width="520" height="46" rx="8"/><text class="h" x="46" y="145">SHARED STATE</text><text class="s" x="46" y="161">Auth · Current project · Model settings per agent</text>
+    <rect class="ai" x="30" y="184" width="250" height="90" rx="8"/><text class="h" x="46" y="206">AGENTS (agents.ts)</text><text class="s" x="46" y="226">~40 prompt functions: interpret,</text><text class="s" x="46" y="241">plan, code, evaluate, explain,</text><text class="s" x="46" y="256">strategy, consistency</text>
+    <rect class="ui" x="300" y="184" width="250" height="90" rx="8"/><text class="h" x="316" y="206">DATA ENGINE</text><text class="s" x="316" y="226">Web Worker runs the AI's code</text><text class="s" x="316" y="241">with Danfo.js + TensorFlow.js.</text><text class="s" x="316" y="256">5 s sample test, 60 s full run</text>
+    <rect class="st" x="30" y="290" width="250" height="84" rx="8"/><text class="h" x="46" y="312">BROWSER STORAGE</text><text class="s" x="46" y="332">IndexedDB: CSV files</text><text class="s" x="46" y="347">localStorage: model choices</text>
+    <rect class="ui" x="300" y="290" width="250" height="84" rx="8"/><text class="h" x="316" y="312">RESULT VIEWERS</text><text class="s" x="316" y="332">Tables, charts, readable JSON,</text><text class="s" x="316" y="347">consistency report, dossier</text>
+    <rect class="st" x="650" y="40" width="200" height="130" rx="8"/><text class="h" x="666" y="64">FIREBASE</text><text class="s" x="666" y="86">Google sign-in</text><text class="s" x="666" y="104">Firestore: users, projects,</text><text class="s" x="666" y="120">history, favourites</text><text class="s" x="666" y="138">Owner-only security rules</text>
+    <rect class="ai" x="650" y="220" width="200" height="130" rx="8"/><text class="h" x="666" y="244">AI PROVIDERS</text><text class="s" x="666" y="266">Anthropic Claude</text><text class="s" x="666" y="284">OpenAI GPT</text><text class="s" x="666" y="302">Google Gemini</text><text class="s" x="666" y="324">Automatic fallback to the</text><text class="s" x="666" y="338">next model if one is busy</text>
+    <path class="arr" d="M550 79H648" marker-end="url(#a2)"/>
+    <path class="arr" d="M280 229H300" marker-end="url(#a2)"/>
+    <path class="arr" d="M280 229C 600 229 600 270 648 270" marker-end="url(#a2)" transform="translate(0,0)"/>
+  </svg></div>
+  <div class="legend"><span class="l-ui">App code</span><span class="l-ai">AI</span><span class="l-st">Storage / cloud data</span></div>
+</section>
+
+<section>
+  <h2>3. The Wizard's safety loop</h2>
+  <p>AI-written code often fails the first time. The Wizard tests it on a few rows, runs it on everything, has another AI judge the output, and tries again with the error message as a hint. It keeps the last three attempts.</p>
+  <div class="fig">
+  <svg viewBox="0 0 860 300" role="img" aria-label="Retry loop for generated code">
+    <defs><marker id="a3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--muted)" stroke="none"/></marker></defs>
+    <rect class="ai" x="10" y="100" width="130" height="60" rx="8"/><text class="h" x="75" y="127" text-anchor="middle">WRITE CODE</text><text class="s" x="75" y="145" text-anchor="middle">from the plan</text>
+    <rect class="ui" x="180" y="100" width="130" height="60" rx="8"/><text class="h" x="245" y="127" text-anchor="middle">SNIFF TEST</text><text class="s" x="245" y="145" text-anchor="middle">5 rows, 5 s limit</text>
+    <rect class="ui" x="350" y="100" width="130" height="60" rx="8"/><text class="h" x="415" y="127" text-anchor="middle">FULL RUN</text><text class="s" x="415" y="145" text-anchor="middle">all rows, 60 s limit</text>
+    <rect class="ai" x="520" y="100" width="130" height="60" rx="8"/><text class="h" x="585" y="127" text-anchor="middle">JUDGE</text><text class="s" x="585" y="145" text-anchor="middle">does it answer it?</text>
+    <rect class="ai" x="690" y="100" width="150" height="60" rx="8"/><text class="h" x="765" y="127" text-anchor="middle">EXPLAIN + SAVE</text><text class="s" x="765" y="145" text-anchor="middle">history / favourite</text>
+    <rect class="wn" x="250" y="220" width="330" height="56" rx="8"/><text class="h" x="415" y="244" text-anchor="middle">ERROR ANALYZER</text><text class="s" x="415" y="262" text-anchor="middle">what went wrong, how to fix it</text>
+    <path class="arr" d="M140 130H178" marker-end="url(#a3)"/><path class="arr" d="M310 130H348" marker-end="url(#a3)"/><path class="arr" d="M480 130H518" marker-end="url(#a3)"/><path class="arr" d="M650 130H688" marker-end="url(#a3)"/>
+    <text class="s" x="669" y="122" text-anchor="middle">good</text>
+    <path class="arr dash" d="M245 160V190H300V218" marker-end="url(#a3)"/><path class="arr dash" d="M415 160V218" marker-end="url(#a3)"/><path class="arr dash" d="M585 160V190H530V218" marker-end="url(#a3)"/>
+    <text class="s" x="600" y="185">fail / not good</text>
+    <path class="arr dash" d="M250 248H75V162" marker-end="url(#a3)"/><text class="s" x="82" y="200">retry with the error as a hint</text>
+  </svg></div>
+</section>
+
+<section>
+  <h2>4. Two bigger modes built from the same parts</h2>
+  <div class="fig">
+  <svg viewBox="0 0 860 300" role="img" aria-label="Strategic and consistency modes">
+    <defs><marker id="a4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--muted)" stroke="none"/></marker></defs>
+    <text class="h" x="10" y="20">ANSWER STRATEGICALLY: one big question, five evidence steps, one dossier</text>
+    <rect class="ui" x="10" y="34" width="120" height="56" rx="8"/><text class="t" x="70" y="67" text-anchor="middle">Big question</text>
+    <rect class="ai" x="160" y="34" width="150" height="56" rx="8"/><text class="t" x="235" y="58" text-anchor="middle">Split into ~5</text><text class="t" x="235" y="75" text-anchor="middle">sub-questions</text>
+    <rect class="plain" x="340" y="34" width="190" height="56" rx="8"/><text class="t" x="435" y="58" text-anchor="middle">Each runs the Wizard loop</text><text class="s" x="435" y="75" text-anchor="middle">next step chosen from the last</text>
+    <rect class="ai" x="560" y="34" width="150" height="56" rx="8"/><text class="t" x="635" y="58" text-anchor="middle">Dossier: verdict,</text><text class="t" x="635" y="75" text-anchor="middle">risks, next steps</text>
+    <rect class="st" x="730" y="34" width="120" height="56" rx="8"/><text class="t" x="790" y="58" text-anchor="middle">Saved with</text><text class="t" x="790" y="75" text-anchor="middle">CSV fingerprint</text>
+    <path class="arr" d="M130 62H158" marker-end="url(#a4)"/><path class="arr" d="M310 62H338" marker-end="url(#a4)"/><path class="arr" d="M530 62H558" marker-end="url(#a4)"/><path class="arr" d="M710 62H728" marker-end="url(#a4)"/>
+    <text class="h" x="10" y="160">ANSWER CONSISTENCY: same question, several independent runs, one stability report</text>
+    <rect class="ui" x="10" y="174" width="120" height="100" rx="8"/><text class="t" x="70" y="228" text-anchor="middle">Question</text>
+    <rect class="ai" x="160" y="174" width="150" height="100" rx="8"/><text class="t" x="235" y="218" text-anchor="middle">Plan several</text><text class="t" x="235" y="235" text-anchor="middle">different ways</text><text class="t" x="235" y="252" text-anchor="middle">to ask it</text>
+    <rect class="plain" x="340" y="174" width="190" height="30" rx="6"/><text class="t" x="435" y="194" text-anchor="middle">Run 1</text>
+    <rect class="plain" x="340" y="212" width="190" height="30" rx="6"/><text class="t" x="435" y="232" text-anchor="middle">Run 2</text>
+    <rect class="plain" x="340" y="250" width="190" height="30" rx="6"/><text class="t" x="435" y="270" text-anchor="middle">Run 3 ... n</text>
+    <rect class="ai" x="560" y="174" width="150" height="100" rx="8"/><text class="t" x="635" y="218" text-anchor="middle">Compare answers</text><text class="t" x="635" y="235" text-anchor="middle">and judge</text><text class="t" x="635" y="252" text-anchor="middle">how stable</text>
+    <rect class="ui" x="730" y="174" width="120" height="100" rx="8"/><text class="t" x="790" y="222" text-anchor="middle">Report with</text><text class="t" x="790" y="240" text-anchor="middle">visuals</text>
+    <path class="arr" d="M130 224H158" marker-end="url(#a4)"/><path class="arr" d="M310 224H338" marker-end="url(#a4)"/><path class="arr" d="M530 224H558" marker-end="url(#a4)"/><path class="arr" d="M710 224H728" marker-end="url(#a4)"/>
+  </svg></div>
+</section>
+
+<section>
+  <h2>5. Where data lives</h2>
+  <div class="fig">
+  <svg viewBox="0 0 860 230" role="img" aria-label="Where each kind of data is stored">
+    <rect class="st" x="10" y="20" width="260" height="190" rx="8"/><text class="h" x="26" y="44">THIS BROWSER ONLY</text>
+    <text class="t" x="26" y="72">CSV data files (IndexedDB)</text><text class="t" x="26" y="96">Which AI model each agent uses</text><text class="t" x="26" y="120">Schema text copy (also in Firestore)</text>
+    <text class="s" x="26" y="160">Lost if site data is cleared.</text><text class="s" x="26" y="176">Not shared with teammates.</text>
+    <rect class="st" x="300" y="20" width="260" height="190" rx="8"/><text class="h" x="316" y="44">FIRESTORE (YOUR ACCOUNT ONLY)</text>
+    <text class="t" x="316" y="72">users: id, email, name</text><text class="t" x="316" y="96">projects: name, schema, examples</text><text class="t" x="316" y="120">history: question, code, narrative</text><text class="t" x="316" y="144">favourites: saved analyses and</text><text class="t" x="316" y="162">  strategic dossiers</text>
+    <rect class="ai" x="590" y="20" width="260" height="190" rx="8"/><text class="h" x="606" y="44">SENT TO AI PROVIDERS</text>
+    <text class="t" x="606" y="72">The question text</text><text class="t" x="606" y="96">Column names and descriptions</text><text class="t" x="606" y="120">A few sample rows and results</text>
+    <text class="s" x="606" y="160">Full CSV files are not uploaded.</text><text class="s" x="606" y="176">Review before using sensitive data.</text>
+  </svg></div>
+</section>
+</main>
+
+</body></html>

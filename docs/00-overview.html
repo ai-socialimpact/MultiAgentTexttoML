@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>ImpactLens High-Level Design</title>
+  <style>
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <link rel="stylesheet" href="assets.css" />
+  <meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Space+Grotesk:wght@500;700&display=swap">
+</head>
+<body>
+<nav><a href="index.html">&larr; ImpactLens docs</a></nav><main>
+<h1 id="impactlens-high-level-design">ImpactLens: High-Level Design</h1>
+<p>A plain-language guide to what ImpactLens does, how it is put
+together, and where it needs attention. Based on the source code ("Oct
+10 vN1 Tech4Dev: ImpactLens").</p>
+<h2 id="1-what-the-app-does">1. What the app does</h2>
+<p>ImpactLens lets people at NGOs ask questions about their data in
+plain English and get answers back, without writing code. The user
+uploads CSV files and a short description of the columns. They type a
+question such as "which districts improved most?". The app uses AI
+models to turn that question into a small analysis program, runs it in
+the browser on the user's data, checks the result, and explains it in
+simple language.</p>
+<p><strong>Who uses it:</strong> NGO interns, volunteers, program
+leaders, and data scientists. The explanations can be written for four
+audiences: a school-student intern, a college-graduate volunteer, an NGO
+program leader, or a data scientist.</p>
+<p><strong>Main things a user can do (the tabs in the app):</strong></p>
+<table>
+<thead>
+<tr class="header">
+<th>Tab</th>
+<th>What it is for</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Wizard</td>
+<td>Step-by-step: ask a question, review the plan, run the analysis,
+read the explanation. Results can be saved as favourites.</td>
+</tr>
+<tr class="even">
+<td>Answer Consistency</td>
+<td>Runs the same question several times in different ways to see
+whether the answer is stable. Produces a consistency report.</td>
+</tr>
+<tr class="odd">
+<td>Answer Strategically</td>
+<td>Breaks a big question into about five sub-questions, answers each
+with data, and writes a "strategic dossier" (verdict, summary,
+recommendations, risks).</td>
+</tr>
+<tr class="even">
+<td>Saved Queries</td>
+<td>Re-runs saved strategic dossiers, including on new data.</td>
+</tr>
+<tr class="odd">
+<td>Strategist Wizard</td>
+<td>Suggests strategy questions from the data and from past
+favourites.</td>
+</tr>
+<tr class="even">
+<td>Fast track</td>
+<td>Searches saved favourites for ones similar to a new question.</td>
+</tr>
+<tr class="odd">
+<td>Favourites / History</td>
+<td>Saved analyses and a log of past runs. Favourites can be re-run on
+other data.</td>
+</tr>
+<tr class="even">
+<td>Files in DB</td>
+<td>Upload CSVs and the schema and example files for a project.</td>
+</tr>
+<tr class="odd">
+<td>Agent Settings</td>
+<td>Choose which AI model each "agent" uses.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="2-architecture-at-a-glance">2. Architecture at a glance</h2>
+<p>ImpactLens is a <strong>single-page web app that runs entirely in the
+browser</strong>. There is no application server of its own. It talks
+directly to Firebase (login and saved data) and to AI providers
+(Anthropic, OpenAI, Google Gemini). See <a
+href="01-design-diagrams.html">01-design-diagrams.html</a> for
+pictures.</p>
+<pre><code>+---------------------------- User&#39;s browser -----------------------------+
+|                                                                         |
+|  React UI (Dashboard with 10 tabs)                                      |
+|     |                                                                   |
+|     +--&gt; Contexts: Auth | Project | Settings (model choices)            |
+|     |                                                                   |
+|     +--&gt; Agents (agents.ts) --- prompts + model fallback ---------------+--&gt; AI providers
+|     |                                                                   |    Claude / GPT / Gemini
+|     +--&gt; Data Agent Engine --&gt; Web Worker sandbox                       |
+|     |        runs AI-written JS with Danfo.js + TensorFlow.js           |
+|     |                                                                   |
+|     +--&gt; Local storage: IndexedDB (CSV files), localStorage (settings)  |
+|                                                                         |
++--------------------------------+----------------------------------------+
+                                 |
+                                 v
+                  Firebase: Google sign-in + Firestore
+          (users, projects, history, favourites; owner-only rules)</code></pre>
+<h3 id="main-components">Main components</h3>
+<ul>
+<li><strong>UI shell (<code>App.tsx</code>,
+<code>Dashboard.tsx</code>).</strong> Shows Login, then Project
+selection, then the tabbed Dashboard.</li>
+<li><strong>Contexts.</strong> <code>AuthContext</code> handles Google
+sign-in and creates a user record. <code>ProjectContext</code> lists and
+creates the user's projects (live from Firestore).
+<code>SettingsContext</code> stores which model each agent uses, in the
+browser.</li>
+<li><strong>Agents (<code>lib/agents.ts</code>, about 40
+functions).</strong> Each is a prompt plus parsing. Examples: Query
+Interpreter (rewrites the question to match column names), Planner, Code
+Generator, Evaluator, Error Analyzer, Explainer, and the strategy and
+consistency agents. A shared helper tries the chosen model first and
+moves to the next model in a list if it hits rate limits or
+overload.</li>
+<li><strong>Data Agent Engine
+(<code>lib/DataAgentEngine.ts</code>).</strong> Runs the AI-written code
+inside a Web Worker. It first tests on a 5-row sample (5 s limit), then
+runs on the full data (60 s limit). The code can use <code>data</code>,
+Danfo.js (<code>dfd</code>) and TensorFlow.js (<code>tf</code>).</li>
+<li><strong>Result viewers.</strong> <code>SmartResultViewer</code> and
+<code>FormattedAnswerDisplay</code> show any result (text, tables,
+charts, nested JSON) readably. <code>ConsistencyReportModal</code> shows
+consistency reports.</li>
+<li><strong>Storage.</strong> CSV files stay in the browser (IndexedDB
+via Dexie). Projects, history and favourites go to Firestore.</li>
+</ul>
+<h2 id="3-key-data-flows">3. Key data flows</h2>
+<p><strong>A. Asking a question (Wizard)</strong></p>
+<ol type="1">
+<li>User types a question. The Query Interpreter rewrites it using the
+project's schema description.</li>
+<li>The Planner writes an analysis plan; the user can edit it.</li>
+<li>The Code Generator writes JavaScript for the plan.</li>
+<li>The engine runs it in the worker on the parsed CSV data (CSV read
+from IndexedDB, parsed with PapaParse).</li>
+<li>The Evaluator checks the result. If it failed or looks wrong, the
+Error Analyzer explains why and the code is regenerated (the last 3
+attempts are kept).</li>
+<li>The Explainer writes the narrative. The run is saved to Firestore
+<code>history</code>; the user can star it into
+<code>favourites</code>.</li>
+</ol>
+<p><strong>B. Strategic dossier.</strong> The question is split into
+sub-questions. Each goes through interpret, plan, code, run, and
+evaluate. A final agent combines the evidence into a dossier. The bundle
+is saved to <code>favourites</code> with a SHA-256 fingerprint of each
+CSV, so a re-run can tell whether the data changed.</p>
+<p><strong>C. Consistency check.</strong> One question is planned into
+several variants. Each is run independently. An agent compares the
+answers and produces a report.</p>
+<p><strong>D. Favourite search.</strong> Favourites for the project are
+loaded and an AI model picks the closest matches to a new question.</p>
+<p><strong>What leaves the browser:</strong> the question, the column
+schema, a sample of data and results are sent inside prompts to the AI
+providers. Projects, history and favourites go to Firestore. Raw CSV
+files are not uploaded.</p>
+<h2 id="4-external-dependencies">4. External dependencies</h2>
+<table>
+<thead>
+<tr class="header">
+<th>Service</th>
+<th>Used for</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Firebase Auth (Google sign-in)</td>
+<td>Login</td>
+</tr>
+<tr class="even">
+<td>Firestore</td>
+<td>Users, projects, history, favourites</td>
+</tr>
+<tr class="odd">
+<td>Anthropic, OpenAI, Google Gemini APIs</td>
+<td>All AI agents. Default models are Claude Sonnet 5.5 and Haiku
+5.5.</td>
+</tr>
+<tr class="even">
+<td>jsDelivr CDN</td>
+<td>Loads Danfo.js and TensorFlow.js into the worker at run time</td>
+</tr>
+</tbody>
+</table>
+<p>Main libraries: React 19, Vite 6, Tailwind 4, Chart.js, PapaParse,
+Dexie, Danfo.js, TensorFlow.js, Zod.</p>
+<p><strong>Data model (Firestore):</strong> <code>users</code>,
+<code>projects</code> (name, schema text, few-shot examples, file list),
+<code>history</code> (query, code, status, narrative),
+<code>favourites</code> (history fields plus plan, result, and for
+strategic ones the fingerprints, steps and dossier). Firestore rules
+deny everything by default and allow each signed-in user to read and
+write only their own records, with size limits.</p>
+<h2 id="5-setup-and-run">5. Setup and run</h2>
+<p>From the README and config files:</p>
+<ol type="1">
+<li>Install Node.js, then run <code>npm install</code>.</li>
+<li>Copy <code>.env.example</code> to <code>.env.local</code> and set
+<code>GEMINI_DEFAULT_API_KEY</code>, <code>OPENAI_DEFAULT_API_KEY</code>
+and <code>CLAUDE_DEFAULT_API_KEY</code>. (The README mentions only the
+Gemini key, but the default models are Claude, so the Claude key is
+needed in practice.)</li>
+<li><code>npm run dev</code> starts the app at http://localhost:3000.
+<code>npm run build</code> builds it; <code>npm run lint</code> runs the
+TypeScript check.</li>
+<li>The app points at a Firebase project set in
+<code>firebase-applet-config.json</code>. To use your own, replace that
+file and deploy <code>firestore.rules</code>. Enable Google sign-in in
+Firebase.</li>
+<li>In the app: sign in, create a project, open <strong>Files in
+DB</strong>, and upload your CSVs plus
+<code>schemadescription.txt</code>. Optional:
+<code>few_shot_description.txt</code>,
+<code>classifer_guidelines.txt</code> (spelled this way in the code),
+<code>Few_shot_examples.json</code>.</li>
+</ol>
+<p>The app was generated in Google AI Studio and is set up to be hosted
+there.</p>
+<h2 id="6-gaps-risks-and-unclear-areas">6. Gaps, risks and unclear
+areas</h2>
+<p><strong>Needs attention</strong></p>
+<ul>
+<li><strong>AI keys are exposed in the browser.</strong>
+<code>vite.config.ts</code> bakes the keys into the JavaScript, and the
+SDKs are created with <code>dangerouslyAllowBrowser: true</code>. Anyone
+who opens the deployed site can read and use the keys. Fix: send AI
+calls through a small server or cloud function that holds the keys.</li>
+<li><strong>AI-written code runs with <code>new Function</code> in a
+worker.</strong> A worker keeps it off the page, but it is not a strict
+sandbox. It can still make network requests and use the loaded
+libraries. Prompt-injected or faulty code could send data out. Consider
+tighter limits.</li>
+<li><strong>Scripts load from a public CDN at run time</strong>,
+unpinned to a hash. The app breaks offline and depends on the CDN being
+trusted.</li>
+<li><strong>Data sent to third-party AI providers.</strong> Samples and
+results go to three vendors. NGOs handling sensitive beneficiary data
+should confirm this is acceptable and say so in the UI.</li>
+</ul>
+<p><strong>Worth fixing</strong></p>
+<ul>
+<li><strong>CSV files live only in one browser.</strong> If the user
+clears site data or switches device, the files are gone, but projects
+still list them. Teammates cannot share a project's data.</li>
+<li><strong>No server, tests, or CI.</strong> There are no automated
+tests. <code>express</code> and <code>tsx</code> are installed but
+unused. <code>firebase/storage</code> is initialised but not used.</li>
+<li><strong>Very large components.</strong>
+<code>AnswerStrategically.tsx</code> is about 6,000 lines and
+<code>ConsistencyReportModal.tsx</code> about 3,000, which makes changes
+risky.</li>
+<li><strong>Model list may not match your accounts.</strong>
+<code>agents.ts</code> falls back through a hard-coded list of 11 model
+names across three vendors. Some names look like previews or may not
+exist for your keys. Failures are retried silently on the next model,
+which can mask problems and change results and cost.</li>
+<li><strong>Small mismatches.</strong> <code>package.json</code> is
+named <code>react-example</code>; the README does not mention the Claude
+or OpenAI keys; the Firestore blueprint omits the <code>dataFiles</code>
+field that the rules and code use.</li>
+</ul>
+<p><strong>Unclear from the code</strong></p>
+<ul>
+<li>Where it is meant to be deployed beyond AI Studio, and who the
+intended users and data volumes are.</li>
+<li>Whether sharing projects between users is wanted (rules currently
+allow owner-only).</li>
+<li>Cost controls: there is no usage limit on AI calls, and consistency
+and strategic runs make many calls per question.</li>
+</ul>
+<p><em>Note: this review read the structure, configuration and main
+flows. It did not run the app, and the largest UI files were skimmed
+rather than read line by line.</em></p>
+</main>
+</body>
+</html>
